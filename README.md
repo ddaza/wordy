@@ -34,28 +34,34 @@ Search currently runs over an in-memory document on a background task and return
 
 The development bundle uses ad-hoc signing and is not notarized or ready for public distribution. App Sandbox is not enabled in this scaffold; sandbox entitlements and worker file access must be evaluated with the inference integration. Xcode may disable hardened runtime for ad-hoc signatures even though the release setting is enabled; production signing must verify the actual result.
 
-## Developer checks
+## Developer commands
 
-Run the tests with **Product → Test** (⌘U), or use these optional developer commands:
+Xcode remains the build system. The Makefile provides short names for its common development commands:
 
 ```sh
-swift test --scratch-path build/SwiftPM
-
-xcodebuild -project Wordy.xcodeproj -scheme Wordy \
-  -configuration Debug -destination 'platform=macOS' \
-  -derivedDataPath build/DerivedData test
-
-xcodebuild -project Wordy.xcodeproj -scheme Wordy \
-  -configuration Release -destination 'generic/platform=macOS' \
-  -derivedDataPath build/DerivedData build
+make help              # List all commands
+make run               # Build and open the Debug app
+make test              # Run the Xcode test scheme natively
+make test-core         # Run fast shared-core tests with SwiftPM
+make build-arm64       # Cross-compile an Apple Silicon Release app
+make build-x86_64      # Cross-compile an Intel Release app
+make verify-universal  # Build and verify one app containing both architectures
+make check             # Native tests plus Universal Release verification
 ```
 
-The Release app is produced at `build/DerivedData/Build/Products/Release/Wordy.app`. Users run an application bundle; these commands are only for development and automation.
+Use `make test-arm64` on Apple Silicon. `make test-x86_64` requires an Intel Mac or an x86_64 destination made available by Rosetta. Cross-compilation proves that an architecture builds; it does not replace running and profiling on physical hardware.
+
+Run `make xcode` to open the project, or use Xcode directly: **⌘B** builds, **⌘R** runs, and **⌘U** tests. `make doctor`, `make list`, `make analyze`, and `make clean` cover toolchain diagnostics, project inspection, static analysis, and build cleanup. Run `make help` for the complete list; generated products stay under `build/`.
+
+Xcode output is concise by default. Add `XCODE_FLAGS=` to a command when you need the complete build log, for example `make build XCODE_FLAGS=`. Override `BUILD_ROOT` to place generated files elsewhere.
+
+The Universal Release app is produced at `build/DerivedData/Build/Products/Release/Wordy.app`. Users run an application bundle; Make targets and underlying commands are only for development and automation.
 
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
+| `Makefile` | Short developer commands wrapping Xcode and SwiftPM. |
 | `App/` | SwiftUI app entry point and scene composition. |
 | `Features/` | Library, player, transcript surface, and settings. |
 | `Core/` | Domain types, caption timeline, scaffold search, provider/XPC contracts. |
