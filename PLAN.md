@@ -1,6 +1,6 @@
 # Wordy implementation plan
 
-Status: proposed architecture and delivery plan; implementation has not started.
+Status: development scaffold implemented; Milestone 1 remains in progress. See `README.md` and `docs/scaffold.md` for runnable features and limitations. Inference, persistence, Google Drive, and cloud integrations are not implemented yet.
 
 ## 1. Product objective
 

@@ -4,7 +4,7 @@
 
 Wordy is a native macOS lecture player with Google Drive import, transcription, synchronized captions, and transcript search. Users are nontechnical, and recordings of two hours or longer are expected.
 
-Read `PLAN.md` before making architectural changes. It records confirmed requirements, provisional choices, milestones, and acceptance criteria. The repository currently contains planning documents; do not assume the proposed source layout, build targets, or commands already exist.
+Read `PLAN.md` before making architectural changes. It records confirmed requirements, provisional choices, milestones, and acceptance criteria. Read `README.md` and `docs/scaffold.md` for implemented features, build instructions, and remaining scaffold limitations.
 
 User instructions and accepted decisions take precedence over this guidance. Keep the plan current when implementation evidence changes a provisional choice.
 
@@ -59,7 +59,7 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 4. Verify behavior in proportion to risk using the actual commands available in the repository. Do not invent successful build/test results.
 5. Report what changed, what was verified, and any material remaining limitation.
 
-No build or test command is established yet. When scaffolding creates runnable targets, document exact development, test, benchmark, and release commands here or in a linked developer guide.
+Open `Wordy.xcodeproj`, select the Wordy scheme and My Mac, then use Run or Test. Core tests also run with `swift test --scratch-path build/SwiftPM`. Exact Xcode build/test commands are in `README.md`. No benchmark or production release automation is established yet. Keep these instructions current as targets and scripts change.
 
 ## Verification expectations
 

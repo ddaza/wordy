@@ -1,0 +1,154 @@
+// !$*UTF8*$!
+{
+    archiveVersion = 1;
+    classes = {};
+    objectVersion = 77;
+    objects = {
+        A00000000000000000000001 = {
+            isa = PBXProject;
+            attributes = { BuildIndependentTargetsInParallel = YES; LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; };
+            buildConfigurationList = A00000000000000000000010;
+            compatibilityVersion = "Xcode 16.0";
+            developmentRegion = en;
+            hasScannedForEncodings = 0;
+            knownRegions = (en, Base);
+            mainGroup = A00000000000000000000002;
+            preferredProjectObjectVersion = 77;
+            productRefGroup = A00000000000000000000003;
+            projectDirPath = "";
+            projectRoot = "";
+            targets = (B00000000000000000000001, C00000000000000000000001, D00000000000000000000001);
+        };
+        A00000000000000000000002 = {
+            isa = PBXGroup;
+            children = (E00000000000000000000001, E00000000000000000000002, E00000000000000000000003,
+                E00000000000000000000004, E00000000000000000000005, E00000000000000000000006,
+                E00000000000000000000007, A00000000000000000000003);
+            sourceTree = "<group>";
+        };
+        A00000000000000000000003 = {
+            isa = PBXGroup; name = Products; sourceTree = "<group>";
+            children = (B00000000000000000000002, C00000000000000000000002, D00000000000000000000002);
+        };
+        E00000000000000000000001 = { isa = PBXFileSystemSynchronizedRootGroup; path = App; sourceTree = "<group>"; };
+        E00000000000000000000002 = { isa = PBXFileSystemSynchronizedRootGroup; path = Core; sourceTree = "<group>"; };
+        E00000000000000000000003 = { isa = PBXFileSystemSynchronizedRootGroup; path = Features; sourceTree = "<group>"; };
+        E00000000000000000000004 = { isa = PBXFileSystemSynchronizedRootGroup; path = Services; sourceTree = "<group>"; };
+        E00000000000000000000005 = { isa = PBXFileSystemSynchronizedRootGroup; path = TranscriptionService; sourceTree = "<group>"; };
+        E00000000000000000000006 = { isa = PBXFileSystemSynchronizedRootGroup; path = Tests; sourceTree = "<group>"; };
+        E00000000000000000000007 = { isa = PBXFileSystemSynchronizedRootGroup; path = Config; sourceTree = "<group>"; };
+        B00000000000000000000002 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wordy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+        C00000000000000000000002 = { isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = WordyTranscriptionService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
+        D00000000000000000000002 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WordyCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+        B00000000000000000000001 = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = B00000000000000000000010;
+            buildPhases = (B00000000000000000000003, B00000000000000000000004, B00000000000000000000005, B00000000000000000000006);
+            buildRules = ();
+            dependencies = (B00000000000000000000008);
+            fileSystemSynchronizedGroups = (E00000000000000000000001, E00000000000000000000002, E00000000000000000000003, E00000000000000000000004);
+            name = Wordy; productName = Wordy; productReference = B00000000000000000000002;
+            productType = "com.apple.product-type.application";
+        };
+        C00000000000000000000001 = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = C00000000000000000000010;
+            buildPhases = (C00000000000000000000003, C00000000000000000000004, C00000000000000000000005);
+            buildRules = (); dependencies = ();
+            fileSystemSynchronizedGroups = (E00000000000000000000002, E00000000000000000000005);
+            name = WordyTranscriptionService; productName = WordyTranscriptionService;
+            productReference = C00000000000000000000002;
+            productType = "com.apple.product-type.xpc-service";
+        };
+        D00000000000000000000001 = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = D00000000000000000000010;
+            buildPhases = (D00000000000000000000003, D00000000000000000000004, D00000000000000000000005);
+            buildRules = (); dependencies = ();
+            fileSystemSynchronizedGroups = (E00000000000000000000002, E00000000000000000000006);
+            name = WordyCoreTests; productName = WordyCoreTests;
+            productReference = D00000000000000000000002;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
+        B00000000000000000000003 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        B00000000000000000000004 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        B00000000000000000000005 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        B00000000000000000000006 = {
+            isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647;
+            dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices"; dstSubfolderSpec = 16;
+            files = (B00000000000000000000007); name = "Embed XPC Service"; runOnlyForDeploymentPostprocessing = 0;
+        };
+        B00000000000000000000007 = {
+            isa = PBXBuildFile; fileRef = C00000000000000000000002;
+            settings = { ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy); };
+        };
+        B00000000000000000000008 = { isa = PBXTargetDependency; target = C00000000000000000000001; targetProxy = B00000000000000000000009; };
+        B00000000000000000000009 = {
+            isa = PBXContainerItemProxy; containerPortal = A00000000000000000000001;
+            proxyType = 1; remoteGlobalIDString = C00000000000000000000001; remoteInfo = WordyTranscriptionService;
+        };
+        C00000000000000000000003 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        C00000000000000000000004 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        C00000000000000000000005 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        D00000000000000000000003 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        D00000000000000000000004 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        D00000000000000000000005 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+        A00000000000000000000010 = { isa = XCConfigurationList; buildConfigurations = (A00000000000000000000011, A00000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+        B00000000000000000000010 = { isa = XCConfigurationList; buildConfigurations = (B00000000000000000000011, B00000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+        C00000000000000000000010 = { isa = XCConfigurationList; buildConfigurations = (C00000000000000000000011, C00000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+        D00000000000000000000010 = { isa = XCConfigurationList; buildConfigurations = (D00000000000000000000011, D00000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+        A00000000000000000000011 = {
+            isa = XCBuildConfiguration; name = Debug;
+            buildSettings = {
+                ARCHS = "$(ARCHS_STANDARD)"; CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual;
+                CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0;
+                MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx;
+                SWIFT_VERSION = 6.0; SWIFT_STRICT_CONCURRENCY = complete;
+                SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+                ENABLE_TESTABILITY = YES; ONLY_ACTIVE_ARCH = YES;
+                ENABLE_HARDENED_RUNTIME = YES; DEBUG_INFORMATION_FORMAT = dwarf;
+            };
+        };
+        A00000000000000000000012 = {
+            isa = XCBuildConfiguration; name = Release;
+            buildSettings = {
+                ARCHS = "$(ARCHS_STANDARD)"; CLANG_ENABLE_MODULES = YES;
+                CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual;
+                CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0;
+                MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx;
+                SWIFT_VERSION = 6.0; SWIFT_STRICT_CONCURRENCY = complete;
+                SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_COMPILATION_MODE = wholemodule;
+                ONLY_ACTIVE_ARCH = NO; ENABLE_HARDENED_RUNTIME = YES;
+                DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+            };
+        };
+        B00000000000000000000011 = { isa = XCBuildConfiguration; name = Debug; buildSettings = {
+            PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app; PRODUCT_NAME = "$(TARGET_NAME)";
+            INFOPLIST_FILE = "Config/App-Info.plist"; GENERATE_INFOPLIST_FILE = NO;
+            LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+        }; };
+        B00000000000000000000012 = { isa = XCBuildConfiguration; name = Release; buildSettings = {
+            PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app; PRODUCT_NAME = "$(TARGET_NAME)";
+            INFOPLIST_FILE = "Config/App-Info.plist"; GENERATE_INFOPLIST_FILE = NO;
+            LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+        }; };
+        C00000000000000000000011 = { isa = XCBuildConfiguration; name = Debug; buildSettings = {
+            PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.TranscriptionService; PRODUCT_NAME = "$(TARGET_NAME)";
+            INFOPLIST_FILE = "Config/Worker-Info.plist"; GENERATE_INFOPLIST_FILE = NO; SKIP_INSTALL = YES;
+        }; };
+        C00000000000000000000012 = { isa = XCBuildConfiguration; name = Release; buildSettings = {
+            PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.TranscriptionService; PRODUCT_NAME = "$(TARGET_NAME)";
+            INFOPLIST_FILE = "Config/Worker-Info.plist"; GENERATE_INFOPLIST_FILE = NO; SKIP_INSTALL = YES;
+        }; };
+        D00000000000000000000011 = { isa = XCBuildConfiguration; name = Debug; buildSettings = {
+            PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.CoreTests; PRODUCT_NAME = "$(TARGET_NAME)";
+            GENERATE_INFOPLIST_FILE = YES; SKIP_INSTALL = YES;
+        }; };
+        D00000000000000000000012 = { isa = XCBuildConfiguration; name = Release; buildSettings = {
+            PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.CoreTests; PRODUCT_NAME = "$(TARGET_NAME)";
+            GENERATE_INFOPLIST_FILE = YES; SKIP_INSTALL = YES;
+        }; };
+    };
+    rootObject = A00000000000000000000001;
+}

@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+build/
+DerivedData/
+**/xcuserdata/
+*.xcuserstate
+.env
+.env.*
+!.env.example
+*.gguf
+ggml-*.bin
+PrivateFixtures/
+
