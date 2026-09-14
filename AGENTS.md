@@ -6,6 +6,8 @@ Wordy is a native macOS lecture player with Google Drive import, transcription, 
 
 Read `PLAN.md` before making architectural changes. It records confirmed requirements, provisional choices, milestones, and acceptance criteria. Read `README.md` and `docs/scaffold.md` for implemented features, build instructions, and remaining scaffold limitations.
 
+A local, git-ignored sample lecture is documented in `docs/development-assets.md`. It is an opt-in long-file development fixture, not a required CI asset. Follow that document's handling and benchmark-recording rules.
+
 User instructions and accepted decisions take precedence over this guidance. Keep the plan current when implementation evidence changes a provisional choice.
 
 ## Product requirements to preserve
@@ -17,6 +19,8 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Preserve responsive playback, scrolling, search, and navigation during inference.
 - Preserve original audio timing through decoding, silence handling, chunking, and caption generation.
 - Support recovery without discarding completed transcript work.
+- Scope bookmarks to the currently open recording using its SHA-256 content identity; never show or mutate bookmarks from another recording.
+- Export only the currently open recording's committed transcript as UTF-8 text and identify partial exports clearly.
 
 ## Architecture conventions
 
@@ -40,6 +44,10 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Treat changed source audio as a new transcript generation.
 - Search must map hits back to playable timestamps and account for phrases across caption/chunk boundaries.
 - Render visible transcript content efficiently and avoid full-document updates on player ticks.
+- Calculate audio SHA-256 incrementally off the main actor and persist it; do not hash an entire multi-hour file into memory or recompute it on every open.
+- Include the open recording's content digest in every bookmark read and write. A changed digest is different content and must not inherit bookmarks automatically.
+- Validate bookmark times against the source duration and seek through the existing playback controller.
+- Generate text exports locally from ordered committed segments. Use a native save panel and an atomic destination replacement so failed exports do not leave truncated files.
 
 ## Google Drive and cloud boundaries
 

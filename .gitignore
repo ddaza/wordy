@@ -11,3 +11,4 @@ DerivedData/
 ggml-*.bin
 PrivateFixtures/
 tags
+assets/

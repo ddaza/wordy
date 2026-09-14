@@ -18,6 +18,8 @@ Performance is a primary product requirement: transcription must not make playba
 - Automatic creation of timestamped transcripts.
 - Audio playback with synchronized captions and transcript highlighting.
 - Transcript search with results that seek to the corresponding audio.
+- Bookmarks scoped to the currently open recording and persisted by that recording's SHA-256 content identity.
+- Export the currently open recording's transcript as a UTF-8 text file.
 - Reliable handling of lectures lasting two hours or more.
 - Local transcription by default, with optional cloud acceleration.
 - Explicit user choice before sending lecture audio to a transcription provider; no automatic cloud fallback.
@@ -74,6 +76,8 @@ The current baseline is `whisper.cpp`, not a claim that one model is fastest on 
 - Persistent player: play/pause, seek bar, elapsed/remaining time, skip controls, speed, and volume.
 - Search: current lecture by default, with a library-wide mode and timestamped result snippets.
 - Follow playback: enabled initially; manual scrolling suspends following until the user re-enables it.
+- Bookmarks: add a bookmark at the current playback time, list only bookmarks belonging to the open recording, seek when one is selected, and allow bookmarks to be renamed or removed.
+- Export: save the open recording's committed transcript as a UTF-8 `.txt` file through a native save dialog.
 
 Users can listen to cached audio while later portions are still being transcribed. Unprocessed regions remain visibly pending. Searching a partial transcript must state that only completed portions are included.
 
@@ -86,6 +90,7 @@ Phrase-level captions are the first release requirement. Word-by-word highlighti
 - Translate common failures into useful actions: reconnect Google, free disk space, retry download, or choose a supported recording.
 - Support VoiceOver, keyboard navigation, selectable/copyable text, scalable typography, and reduced motion.
 - Export TXT, SRT, and VTT through native save dialogs.
+- If transcription is still in progress, label a text export as partial and make that status clear before saving. Never present an incomplete transcript as complete.
 
 ## 4. Architecture and ownership
 
@@ -165,6 +170,22 @@ Maintain a mapping from indexed passages to caption/source intervals. Account fo
 
 Debounce typing briefly, cancel superseded queries, and page library-wide results. Validate tokenization on required languages; a default tokenizer is not a universal multilingual solution. Semantic search and a vector database are outside the first release.
 
+### Per-recording bookmarks
+
+Bookmarks belong to audio content, not the filename, path, Drive location, or currently selected transcript generation. Compute a SHA-256 digest over the original encoded audio bytes using a streaming reader so hashing memory remains bounded for multi-hour files. For managed Drive downloads, calculate the digest while publishing the validated cache entry. For local imports, calculate it off the main actor and persist the result; do not rehash the recording every time it is opened.
+
+Use the SHA-256 digest as the bookmark partition key. Every bookmark query and mutation must include the digest of the currently open recording. Switching recordings immediately replaces the visible bookmark list and must never leave another recording's bookmarks on screen. An exact byte-for-byte duplicate intentionally resolves to the same content identity and therefore the same bookmark set, even if it has a different name or source location.
+
+A bookmark stores a stable ID, the audio-content SHA-256, an absolute playback timestamp, an optional user-visible label, and creation/update times. Validate that its timestamp is finite and within the recording duration. Bookmark selection seeks through the same playback controller used by transcript search results.
+
+If a source file changes, its new digest creates a separate bookmark partition. Keep bookmarks associated with the previous digest in local storage so temporarily replacing or losing access to a source does not destroy user data. Do not automatically migrate bookmarks between different digests because timestamps may no longer refer to the same content.
+
+### Plain-text transcript export
+
+Export applies only to the currently open recording. Generate a UTF-8 `.txt` document from committed transcript segments in source-time order using readable paragraph breaks and no internal database identifiers. Use a native save panel with a filesystem-safe default based on the lecture title. Write to a temporary sibling and replace the destination only after the complete export succeeds, so a failed write does not leave a truncated file.
+
+The exported text should identify the lecture and whether the transcript is complete or partial. Preserve the original transcript wording and paragraph order; do not send data to a cloud service or regenerate the transcript during export. TXT export does not require word-level timestamps. SRT and VTT remain separate timestamped export formats.
+
 ## 7. Persistence and cache
 
 Proposed entities:
@@ -172,20 +193,21 @@ Proposed entities:
 | Entity | Key information |
 | --- | --- |
 | Account | Internal identifier, provider account reference, connection state; secrets remain in Keychain. |
-| Lecture | Stable ID, source account/file ID, source version/fingerprint, title, duration, format, cache state. |
+| Lecture | Stable ID, SHA-256 content identity, source account/file ID, source version/fingerprint, title, duration, format, cache state. |
 | Transcript | Lecture and source version, provider/model/configuration, language, status, timestamps. |
 | Segment | Transcript ID, order, absolute start/end time, text, finalization state, optional word timing. |
 | Search passage | Transcript ID, indexed text, mapping to segment/time ranges. |
 | Job | Provider, lifecycle state, retry metadata, progress, checkpoint, idempotency identity. |
 | Chunk | Job, source time range, state, attempts, committed result reference. |
 | Playback state | Lecture ID, position, speed, last opened time. |
+| Bookmark | Stable ID, audio-content SHA-256, absolute playback time, optional label, created/updated times. |
 | Model asset | Model/version, local path, integrity metadata, download/activation state. |
 
 Use migrations, foreign keys, and transactional index maintenance. Ensure interrupted migration or job recovery cannot produce a falsely complete transcript.
 
 Store managed audio and model assets in application-managed directories. Keep temporary downloads distinguishable from valid cache entries. Cache eviction may remove re-downloadable audio, but must preserve transcripts and listening state. Let users pin offline audio and inspect storage usage.
 
-A source change creates a new transcript generation; it must not attach old captions to changed audio. A removed or inaccessible Drive file should not erase an existing local transcript automatically.
+A source change creates a new transcript generation and content digest; it must not attach old captions or bookmarks to changed audio. A removed or inaccessible Drive file should not erase an existing local transcript or bookmark set automatically.
 
 ## 8. Google Drive integration
 
@@ -262,11 +284,11 @@ Exit: an evidence-backed engine/configuration recommendation and a functioning v
 ### Milestone 2: complete local listening workflow
 
 - Add database schema/migrations, durable job coordinator, cache, and model manager.
-- Build library, virtualized transcript, caption synchronization, playback state, search, and exports.
+- Build library, virtualized transcript, caption synchronization, playback state, search, per-recording bookmarks, and exports.
 - Add overlap reconciliation, safe incremental indexing, cancellation, retry, and restart recovery.
 - Test pending transcript regions, search boundary matches, sleep/wake, and low-disk handling.
 
-Exit: a user can import a two-hour local recording, transcribe, listen/read, search-to-seek, close, and resume without technical intervention.
+Exit: a user can import a two-hour local recording, transcribe, listen/read, search-to-seek, add and revisit recording-specific bookmarks, export a text transcript, close, and resume without technical intervention.
 
 ### Milestone 3: Google Drive
 
@@ -298,10 +320,11 @@ Exit: a signed release candidate meets the agreed functional and performance gat
 
 ## 12. Verification strategy
 
-- Unit/integration tests for timestamp mapping, overlap reconciliation, phrase boundaries, safe search queries, source-version invalidation, migrations, and atomic checkpoint/index commits.
+- Unit/integration tests for timestamp mapping, overlap reconciliation, phrase boundaries, safe search queries, source-version invalidation, migrations, atomic checkpoint/index commits, bookmark partitioning by SHA-256, and text export ordering/completeness markers.
 - Provider contract tests with recorded fixtures for local/cloud result normalization; use deliberate opt-in live calls for billable provider checks.
 - Failure injection for worker crash, application exit, corrupt download, disk exhaustion, expired credentials, and network loss.
 - UI tests for onboarding, playback controls, search navigation, and recovery messages; manual accessibility checks where automation is insufficient.
+- UI tests must switch between recordings and prove that only the open recording's bookmarks appear, that bookmark activation seeks correctly, and that export always uses the open recording's transcript.
 - Performance checks using Instruments, signposts, and repeatable release-build benchmarks.
 - Release checks for architecture slices, linkage, signatures, notarization, model assets, and update installation.
 

@@ -69,6 +69,7 @@ The Universal Release app is produced at `build/DerivedData/Build/Products/Relea
 | `TranscriptionService/` | XPC executable; currently reports that inference is unavailable. |
 | `Config/` | App and worker property lists. |
 | `Tests/` | Timing, validation, search, and cloud-consent tests. |
+| `assets/` | Git-ignored local recordings for deliberate manual and performance checks; see `docs/development-assets.md`. |
 | `Wordy.xcodeproj/` | App/worker/test targets and shared scheme. |
 
 Xcode synchronized folders include new source files automatically within their target folders. `Core/` is compiled into each relevant target; SwiftPM also exposes it as `WordyCore`. Keep it independent of UI frameworks.
@@ -77,4 +78,4 @@ Xcode synchronized folders include new source files automatically within their t
 
 Integrate a pinned `whisper.cpp` build into the worker, add the model manager and bounded audio decoding, and replace the readiness-only contract with versioned transcription messages. Add actual timestamped results to imported lectures, then implement atomic persistence/checkpoints and benchmark full two-hour recordings on physical Intel and M1 Macs.
 
-See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, and [docs/scaffold.md](docs/scaffold.md) for the current architecture boundary and verification record.
+See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, [docs/scaffold.md](docs/scaffold.md) for the current architecture boundary and verification record, and [docs/development-assets.md](docs/development-assets.md) for the local sample lecture inventory and handling rules.
