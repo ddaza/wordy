@@ -6,6 +6,8 @@ struct TranscriptionStatusView: View {
     let lecture: Lecture
     let coordinator: TranscriptionCoordinator
     let models: ModelManager
+    let isDismissed: Bool
+    let onDismiss: () -> Void
 
     private var job: TranscriptionCoordinator.Job? {
         coordinator.jobs[lecture.id]
@@ -16,21 +18,38 @@ struct TranscriptionStatusView: View {
     }
 
     var body: some View {
-        if let job {
+        if let job, shouldShow(job) {
             HStack(spacing: 12) {
                 icon(for: job.status)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title(for: job)).font(.callout.weight(.medium))
                     Text(detail(for: job)).font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer()
+                Spacer(minLength: 8)
                 actions(for: job)
+                if case .complete = job.status {
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Dismiss")
+                    .accessibilityLabel("Dismiss")
+                }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
             .background(.quaternary.opacity(0.4))
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
         }
+    }
+
+    private func shouldShow(_ job: TranscriptionCoordinator.Job) -> Bool {
+        if case .complete = job.status {
+            return !isDismissed
+        }
+        return true
     }
 
     @ViewBuilder

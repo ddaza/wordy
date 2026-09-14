@@ -37,7 +37,13 @@ struct LectureDetailView: View {
             }
             .padding(24)
             if !lecture.isSample {
-                TranscriptionStatusView(lecture: lecture, coordinator: library.coordinator, models: library.models)
+                TranscriptionStatusView(
+                    lecture: lecture,
+                    coordinator: library.coordinator,
+                    models: library.models,
+                    isDismissed: library.dismissedStatusLectureIDs.contains(lecture.id),
+                    onDismiss: { library.dismissTranscriptionStatus(for: lecture.id) },
+                )
             }
             Divider()
             HStack(spacing: 0) {

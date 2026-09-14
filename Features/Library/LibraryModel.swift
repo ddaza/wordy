@@ -37,6 +37,7 @@ final class LibraryModel {
     let coordinator: TranscriptionCoordinator
     let bookmarks = BookmarkController()
     var pendingRevealTime: TimeInterval?
+    private(set) var dismissedStatusLectureIDs: Set<UUID> = []
     @ObservationIgnored private let importer = AudioImporter()
 
     var selectedLecture: Lecture? {
@@ -165,5 +166,9 @@ final class LibraryModel {
         guard selectedLecture?.sha256 == bookmark.audioSHA256, playback.hasAudio else { return }
         pendingRevealTime = bookmark.time
         playback.seek(to: bookmark.time)
+    }
+
+    func dismissTranscriptionStatus(for lectureID: UUID) {
+        dismissedStatusLectureIDs.insert(lectureID)
     }
 }
