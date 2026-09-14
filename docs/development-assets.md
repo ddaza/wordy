@@ -2,24 +2,16 @@
 
 ## Sample lecture
 
-A locally supplied lecture is available at:
+Long-file development and benchmarking use a lecture recording that each contributor supplies locally under `assets/`, for example:
 
 ```text
-assets/Copy of Lecture 1.mp3
+assets/lecture.mp3
 ```
 
-Observed metadata on 2026-09-13:
+The entire `assets/` directory is ignored by Git. Recordings placed there are private to the contributor: they must not be committed, redistributed, quoted in documentation, or uploaded to a transcription provider or any other external service without the recording owner's explicit authorization.
 
-| Property | Value |
-| --- | --- |
-| Format | MP3 |
-| Approximate duration | 1:39:46 (5,986.064 seconds) |
-| Bit rate | 192,000 bits per second |
-| File size | 143,669,625 bytes |
-| SHA-256 | `4ade8de682c99bcc3d873c12cde0e7d3a6641ade99cad045e869bd61770c9c6d` |
+A useful fixture is a real classroom recording of roughly 1.5–2 hours in a common compressed format (MP3/AAC), because it exercises long-file playback, streaming SHA-256 calculation, transcription throughput, caption synchronization, cancellation, and checkpoint/recovery. Treat the original as read-only.
 
-Use this recording as an opt-in local fixture for long-file playback, streaming SHA-256 calculation, transcription throughput, caption synchronization, cancellation, and checkpoint/recovery development. Treat the original as read-only. Record the hardware, macOS version, engine/model configuration, build configuration, and measurement conditions with benchmark results.
+CI and automated tests must not assume such a file exists. Routine tests use small synthetic fixtures; long-running checks against a local recording are invoked deliberately (`make bench`, `scripts/bench-matrix.sh`).
 
-The entire `assets/` directory is intentionally ignored by Git. CI and automated tests must not assume this file exists, and the recording must not be committed or redistributed. Do not upload it to a transcription provider or any other external service without the user's explicit authorization for that upload. Routine tests should use small synthetic or redistributable fixtures; long-running checks against this lecture must be invoked deliberately.
-
-If the file changes, update the metadata and SHA-256 above before comparing new benchmark results or bookmark identity behavior.
+When recording benchmark results under `docs/benchmarks/`, describe the corpus only by duration, format, and bit rate, and record the hardware, macOS version, engine/model configuration, build configuration, and measurement conditions. Do not include the recording's file name, hash, or content.

@@ -127,7 +127,7 @@ final class LibraryModel {
         let segments = [
             TranscriptSegment(start: 0, end: 12, text: "Welcome to Wordy. This sample shows how a lecture transcript will appear alongside your audio."),
             TranscriptSegment(start: 12, end: 24, text: "Search for a phrase to find the passage you need. Completed transcripts will let you jump directly to that moment in the recording."),
-            TranscriptSegment(start: 26, end: 38, text: "Local transcription keeps lecture audio on your Mac. Cloud acceleration will always require an explicit choice."),
+            TranscriptSegment(start: 26, end: 38, text: "Local transcription keeps lecture audio on your Mac. Nothing is uploaded."),
             TranscriptSegment(start: 38, end: 52, text: "Long lectures are processed in smaller sections. The player and transcript stay responsive as later sections are prepared."),
             TranscriptSegment(start: 52, end: 65, text: "This is sample text, with no audio attached. Import a recording to try the audio player and local transcription."),
         ]

@@ -69,13 +69,9 @@ import Testing
     #expect(TranscriptSearch.hits(in: segments, query: "cafe").count == 1)
 }
 
-@Test func `cloud requires explicit consent and local is default`() throws {
+@Test func `transcription requests accept only local files`() throws {
     let url = URL(fileURLWithPath: "/tmp/example.wav")
-    #expect(try TranscriptionRequest(audioURL: url).mode == .local)
-    #expect(throws: TranscriptionRequest.RequestError.self) {
-        try TranscriptionRequest(audioURL: url, mode: .cloud)
-    }
-    #expect(try TranscriptionRequest(audioURL: url, mode: .cloud, explicitCloudConsent: true).mode == .cloud)
+    #expect(try TranscriptionRequest(audioURL: url).audioURL == url)
     #expect(throws: TranscriptionRequest.RequestError.self) {
         try TranscriptionRequest(audioURL: #require(URL(string: "https://example.com/audio.wav")))
     }

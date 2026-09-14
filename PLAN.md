@@ -1,12 +1,12 @@
 # Wordy implementation plan
 
-Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs, and the in-app recovery walkthrough, remain open before Milestone 1 can be closed. See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence, Google Drive, and cloud integrations are not implemented yet.
+Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs, and the in-app recovery walkthrough, remain open before Milestone 1 can be closed. See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence and Google Drive are not implemented yet. Cloud transcription is out of scope: Wordy is a desktop-only application and all inference runs on the user's Mac.
 
 ## 1. Product objective
 
 Build a native macOS application that connects to Google Drive, imports lecture recordings, transcribes them, and lets users listen while reading synchronized captions and a searchable transcript. Recordings of two hours or longer are a normal workload.
 
-The audience is nontechnical. Installation, Google sign-in, model downloads, transcription, recovery, and updates must work through the graphical interface. Users must not need Terminal, Homebrew, Python, developer tools, or transcription-provider API keys.
+The audience is nontechnical. Installation, Google sign-in, model downloads, transcription, recovery, and updates must work through the graphical interface. Users must not need Terminal, Homebrew, Python, developer tools, or any online transcription account.
 
 Performance is a primary product requirement: transcription must not make playback, scrolling, searching, or navigation sluggish.
 
@@ -21,8 +21,7 @@ Performance is a primary product requirement: transcription must not make playba
 - Bookmarks scoped to the currently open recording and persisted by that recording's SHA-256 content identity.
 - Export the currently open recording's transcript as a UTF-8 text file.
 - Reliable handling of lectures lasting two hours or more.
-- Local transcription by default, with optional cloud acceleration.
-- Explicit user choice before sending lecture audio to a transcription provider; no automatic cloud fallback.
+- All transcription runs locally on the user's Mac. Lecture audio and transcripts are never sent to a transcription service; the only network traffic is Google Drive import and model/app-update downloads.
 
 ### Working assumptions
 
@@ -48,14 +47,13 @@ Performance is a primary product requirement: transcription must not make playba
 | Database | SQLite with GRDB and FTS5 | Transactions, migrations, indexed search, and durable job state. |
 | Networking | `URLSession`, Google Drive API v3 | Typed API integration and downloads to disk. |
 | Authentication | Maintained native OAuth library, PKCE, Keychain | Browser-based Google authorization; credentials stay out of ordinary app storage and logs. Validate the exact client and redirect configuration in the integration spike. |
-| Cloud candidate | Deepgram Nova-3 through an app-owned backend | Timestamped output; subject to language, accuracy, latency, retention, and cost evaluation. |
 | App updates | Sparkle 2 | In-app updates for direct distribution. |
 | Build | Xcode, Swift Package Manager, reproducible C/C++ build | Universal app and worker with pinned dependencies. |
 | Distribution | Developer ID signing, hardened runtime, notarized DMG | Familiar installation without command-line setup. |
 
 Keep the application architecture native and small. Add another runtime, media library, or inference engine only when a demonstrated requirement justifies its packaging and maintenance cost.
 
-The current baseline is `whisper.cpp`, not a claim that one model is fastest on every Mac. The first milestone must measure the proposed backend on real target hardware. A newer native transcription backend may be evaluated later behind the same interface if it provides a measured benefit without removing Intel support.
+The current baseline is `whisper.cpp`, not a claim that one model is fastest on every Mac. The first milestone must measure the proposed engine on real target hardware. A newer native, on-device transcription engine may be evaluated later behind the same interface if it provides a measured benefit without removing Intel support.
 
 ## 3. User experience
 
@@ -102,11 +100,9 @@ flowchart TD
     Drive[Google Drive client] --> Cache[Audio cache on disk]
     Jobs --> Drive
     Jobs --> Local[XPC local transcription worker]
-    Jobs --> Cloud[Optional authenticated cloud backend]
     Cache --> Playback
     Cache --> Local
     Local --> Results[Validated timestamped results]
-    Cloud --> Results
     Results --> DB[(SQLite transcripts and job checkpoints)]
     Search --> DB
     DB --> UI
@@ -122,11 +118,11 @@ flowchart TD
 - Keep SQLite writes coordinated by the application. The worker returns bounded result batches and does not independently mutate the app database.
 - Pass validated file references and bounded messages across XPC rather than entire recordings or model data. If sandboxing is enabled, validate file access and entitlements in the first milestone.
 
-### Provider interface
+### Engine interface
 
-Both engines implement a common transcription interface with capabilities, model/version identity, language, progress, cancellation, and timestamped results. Do not force cloud job lifecycle semantics into local chunk semantics.
+The inference engine sits behind a common transcription interface with capabilities, model/version identity, language, progress, cancellation, and timestamped results, so a different on-device engine can be evaluated without changing the job coordinator or UI.
 
-Normalize results into absolute source-audio times. Include start/end time, text, sequence, finalization status, and optional word timings. Provider confidence values are optional and must not be presented as interchangeable calibrated accuracy scores.
+Normalize results into absolute source-audio times. Include start/end time, text, sequence, finalization status, and optional word timings. Engine confidence values are optional and must not be presented as calibrated accuracy scores.
 
 ## 5. Long-recording pipeline
 
@@ -184,7 +180,7 @@ If a source file changes, its new digest creates a separate bookmark partition. 
 
 Export applies only to the currently open recording. Generate a UTF-8 `.txt` document from committed transcript segments in source-time order using readable paragraph breaks and no internal database identifiers. Use a native save panel with a filesystem-safe default based on the lecture title. Write to a temporary sibling and replace the destination only after the complete export succeeds, so a failed write does not leave a truncated file.
 
-The exported text should identify the lecture and whether the transcript is complete or partial. Preserve the original transcript wording and paragraph order; do not send data to a cloud service or regenerate the transcript during export. TXT export does not require word-level timestamps. SRT and VTT remain separate timestamped export formats.
+The exported text should identify the lecture and whether the transcript is complete or partial. Preserve the original transcript wording and paragraph order; do not regenerate the transcript during export. TXT export does not require word-level timestamps. SRT and VTT remain separate timestamped export formats.
 
 ## 7. Persistence and cache
 
@@ -194,10 +190,10 @@ Proposed entities:
 | --- | --- |
 | Account | Internal identifier, provider account reference, connection state; secrets remain in Keychain. |
 | Lecture | Stable ID, SHA-256 content identity, source account/file ID, source version/fingerprint, title, duration, format, cache state. |
-| Transcript | Lecture and source version, provider/model/configuration, language, status, timestamps. |
+| Transcript | Lecture and source version, engine/model/configuration, language, status, timestamps. |
 | Segment | Transcript ID, order, absolute start/end time, text, finalization state, optional word timing. |
 | Search passage | Transcript ID, indexed text, mapping to segment/time ranges. |
-| Job | Provider, lifecycle state, retry metadata, progress, checkpoint, idempotency identity. |
+| Job | Engine/model, lifecycle state, retry metadata, progress, checkpoint, idempotency identity. |
 | Chunk | Job, source time range, state, attempts, committed result reference. |
 | Playback state | Lecture ID, position, speed, last opened time. |
 | Bookmark | Stable ID, audio-content SHA-256, absolute playback time, optional label, created/updated times. |
@@ -227,25 +223,14 @@ If included, implement initial folder enumeration followed by persisted change t
 
 Start Google verification early if broad access is required. Restricted-scope verification and any applicable assessment depend on the final data handling; confirm current requirements before release.
 
-## 9. Optional cloud acceleration
+## 9. Local-only processing boundary
 
-Cloud mode is an explicit action per lecture or batch. Explain the receiving service, applicable charge or allowance, and relevant data handling before upload. Do not silently upload when local processing is slow or fails.
+Wordy is a desktop application with no backend. Every transcription runs in the bundled XPC worker on the user's Mac; there is no cloud transcription mode, fallback, or hosted service, and none is planned.
 
-The initial provider candidate is Deepgram Nova-3. Select it only after a comparison on representative lectures that measures recognition quality, timestamp quality, end-to-end latency including transfer, language coverage, and cost.
-
-Proposed backend: a small TypeScript service on a managed platform, managed PostgreSQL for durable job/usage records, a managed queue for processing, and private object storage only where needed for transfer. Choose deployment provider and region after retention, cost, and audience location are decided. No backend is needed for the local-only workflow.
-
-- Authenticate app users without asking them for provider API keys. Google Drive credentials are not generic backend authentication credentials.
-- Keep provider secrets server-side. Avoid sending Drive refresh tokens to the transcription backend; upload only the explicitly selected recording or prepared audio.
-- Enforce authorized job ownership, quotas, request size/duration limits, and retry/idempotency behavior.
-- Verify provider upload limits and timeout behavior. Use asynchronous jobs and durable status where appropriate for long recordings.
-- If cloud chunking is necessary, preserve source offsets and reconcile boundaries just as for local results.
-- Persist server job IDs locally so reopening the app can retrieve results without submitting duplicate billable work.
-- Define cancellation honestly: stopping the UI request may not cancel an accepted provider job or its charge.
-- Verify actual provider retention/deletion controls before displaying promises. Expire temporary backend objects and provide user-visible deletion behavior.
-- Return the same normalized transcript schema used by local processing.
-
-Pricing, account/payment flow, operating budget, and final retention policy remain product decisions. The architecture must support an app-managed allowance or billing without technical setup by users.
+- The application makes network requests only for Google Drive import (Milestone 3), speech model downloads from the pinned catalog, and signed app updates (Milestone 5).
+- Lecture audio, transcripts, search indexes, bookmarks, and listening state never leave the machine except through user-initiated exports.
+- Do not add telemetry or crash reporting that could carry transcript text or recording identifiers. Diagnostics use redacted identifiers and timing metrics.
+- If a faster engine is ever wanted, evaluate an on-device alternative behind the existing engine interface rather than a remote service.
 
 ## 10. Performance and quality acceptance
 
@@ -305,16 +290,7 @@ Exit: a user can import a two-hour local recording, transcribe, listen/read, sea
 
 Exit: a fresh user can connect Drive and complete the same listening workflow through the GUI.
 
-### Milestone 4: cloud acceleration
-
-- Evaluate the provider and settle retention, usage limits, and pricing presentation.
-- Build authenticated backend job submission/status/results and secret management.
-- Add explicit cloud selection, cost/allowance display, cancellation semantics, and resumed result retrieval.
-- Test duplicate submission, network interruption, provider failure, and unauthorized access.
-
-Exit: local and cloud transcripts use the same playback/search path, and cloud work is never initiated without an explicit user choice.
-
-### Milestone 5: release hardening
+### Milestone 4: release hardening
 
 - Complete accessibility, onboarding, storage controls, actionable errors, and updates.
 - Profile against the performance corpus and fix measured bottlenecks.
@@ -327,14 +303,14 @@ Exit: a signed release candidate meets the agreed functional and performance gat
 ## 12. Verification strategy
 
 - Unit/integration tests for timestamp mapping, overlap reconciliation, phrase boundaries, safe search queries, source-version invalidation, migrations, atomic checkpoint/index commits, bookmark partitioning by SHA-256, and text export ordering/completeness markers.
-- Provider contract tests with recorded fixtures for local/cloud result normalization; use deliberate opt-in live calls for billable provider checks.
+- Engine contract tests with recorded fixtures for result normalization across engine/model versions.
 - Failure injection for worker crash, application exit, corrupt download, disk exhaustion, expired credentials, and network loss.
 - UI tests for onboarding, playback controls, search navigation, and recovery messages; manual accessibility checks where automation is insufficient.
 - UI tests must switch between recordings and prove that only the open recording's bookmarks appear, that bookmark activation seeks correctly, and that export always uses the open recording's transcript.
 - Performance checks using Instruments, signposts, and repeatable release-build benchmarks.
 - Release checks for architecture slices, linkage, signatures, notarization, model assets, and update installation.
 
-Do not add tests that merely repeat trivial presentation implementation. Protect the long-file, timing, recovery, privacy-choice, and distribution behaviors that define the product.
+Do not add tests that merely repeat trivial presentation implementation. Protect the long-file, timing, recovery, local-only privacy, and distribution behaviors that define the product.
 
 ## 13. Repository shape after scaffolding
 
@@ -342,14 +318,13 @@ Do not add tests that merely repeat trivial presentation implementation. Protect
 Wordy.xcodeproj
 App/                         # SwiftUI shell and application composition
 Features/                    # Library, transcript, player, search, settings
-Core/                        # Domain models and provider contracts
+Core/                        # Domain models and engine contracts
 Services/                    # Drive, OAuth, jobs, cache, model management
 Persistence/                 # GRDB records, migrations, full-text search
 TranscriptionService/        # XPC worker and inference adapter
 Vendor/                      # Pinned inference source/build integration
 Tests/                       # Behavioral, integration, and UI checks
 Benchmarks/                  # Harness and non-sensitive corpus metadata
-Backend/                     # Added with cloud milestone
 docs/                        # Architecture decisions and release procedures
 ```
 
@@ -363,7 +338,6 @@ This is a proposed layout, not a claim that these files or targets already exist
 - Default model/quantization and transcription-speed gates for each hardware tier (M4 Max evidence recorded; M1 and Intel outstanding).
 - Chunk boundary reconciliation: start-based attribution with word-match or time-proportional trimming was chosen after midpoint attribution dropped straddling sentences; revisit if word-level timestamps are validated.
 - Word highlighting quality threshold and whether alignment work is worthwhile.
-- Cloud provider, region, retention, pricing, and account flow.
 - Whether direct distribution alone is sufficient; Mac App Store distribution has a separate packaging/update path.
 
 These do not block the local prototype. Record decisions and benchmark evidence as milestones progress.
@@ -379,9 +353,7 @@ These do not block the local prototype. Record decisions and benchmark evidence 
 - [Google native-app OAuth](https://developers.google.com/identity/protocols/oauth2/native-app)
 - [Google Picker for desktop apps](https://developers.google.com/workspace/drive/picker/guides/desktop-mobile-picker)
 - [Google Drive downloads](https://developers.google.com/workspace/drive/api/guides/manage-downloads)
-- [Deepgram prerecorded transcription](https://developers.deepgram.com/reference/speech-to-text/listen-pre-recorded)
-- [Deepgram timestamps and utterances](https://deepgram.com/learn/working-with-timestamps-utterances-and-speaker-diarization-in-deepgram)
 - [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 - [Sparkle sandbox integration](https://sparkle-project.org/documentation/sandboxing/)
 
-Recheck dependency versions, provider capabilities, Google permission requirements, and Apple distribution requirements when implementing the corresponding milestone.
+Recheck dependency versions, Google permission requirements, and Apple distribution requirements when implementing the corresponding milestone.

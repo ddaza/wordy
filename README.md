@@ -1,6 +1,6 @@
 # Wordy
 
-A native macOS lecture player and transcription app, targeting macOS 14+ on Intel and Apple Silicon. Local transcription is the default; future cloud acceleration requires explicit consent.
+A native macOS lecture player and transcription app, targeting macOS 14+ on Intel and Apple Silicon. Transcription runs entirely on your Mac; recordings and transcripts are never uploaded. Open source under the [MIT License](LICENSE).
 
 ## Start development in Xcode
 
@@ -25,7 +25,7 @@ A native macOS lecture player and transcription app, targeting macOS 14+ on Inte
 
 ## Current limitations
 
-Google Drive import, cloud processing, GRDB/FTS5 persistence, bookmarks, exports, word-level timing, and automatic updates are not implemented yet. The library is session-only and references original audio files without copying them; transcripts persist as per-recording checkpoint documents and are restored when the same file bytes are imported again. Playback position is not restored after quitting.
+Google Drive import, GRDB/FTS5 persistence, bookmarks, exports, word-level timing, and automatic updates are not implemented yet. The library is session-only and references original audio files without copying them; transcripts persist as per-recording checkpoint documents and are restored when the same file bytes are imported again. Playback position is not restored after quitting.
 
 Search runs over the in-memory transcript of the open lecture on a background task; it is not the planned library-wide FTS5 index.
 
@@ -73,7 +73,8 @@ The Universal Release app is produced at `build/DerivedData/Build/Products/Relea
 | `scripts/` | Pinned engine fetch/build and benchmark matrix scripts. |
 | `Vendor/` | Git-ignored pinned `whisper.cpp` checkout produced by `scripts/fetch-whisper.sh`. |
 | `Config/` | App and worker property lists. |
-| `Tests/` | Timing, search, chunking, reconciliation, checkpoint, digest, message, and consent tests. |
+| `Tests/` | Timing, search, chunking, reconciliation, checkpoint, digest, and message tests. |
+| `LICENSE`, `THIRD_PARTY_NOTICES.md` | MIT license for Wordy and notices for bundled dependencies (`whisper.cpp`/ggml, speech models). |
 | `docs/` | Scaffold record, inference/engine documentation, benchmark records, development assets. |
 | `assets/` | Git-ignored local recordings and model files for deliberate manual and performance checks. |
 

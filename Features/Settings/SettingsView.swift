@@ -41,8 +41,7 @@ struct SettingsView: View {
             }
             Section("Connections") {
                 LabeledContent("Google Drive", value: "Not available in this build")
-                LabeledContent("Cloud acceleration", value: "Not available in this build")
-                Text("Cloud processing will require your explicit choice before audio is uploaded.")
+                Text("Transcription always runs on this Mac. Recordings and transcripts are never uploaded.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

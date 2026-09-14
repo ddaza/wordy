@@ -17,7 +17,7 @@ The runnable slice is a native app with local media import/playback, an independ
 - Playback time drives caption selection. Timeline lookup is logarithmic; only active passage identity changes cause highlight updates.
 - In-memory phrase search is a temporary adapter for the sample. It joins captions with offsets to retain search-to-time mapping across caption boundaries. It does not satisfy the future database/search scalability milestone.
 - The worker reports unavailable inference honestly. There are no fake completed jobs or synthetic transcripts attached to imported recordings.
-- The request-level consent flag guards construction but is not a complete cloud security system. A real integration needs UI consent, authenticated backend authorization, job ownership, and provider data-handling controls.
+- Transcription requests are constructed only for local file URLs; there is no remote transcription path.
 - Worker readiness uses a bounded timeout and finishes its continuation at most once. Actual inference needs a separate durable job protocol, cancellation, versioned results, and recovery semantics.
 - Local development uses ad-hoc signatures with no App Sandbox entitlements. Public distribution needs a real signing identity, notarization, and validated runtime/resource access.
 

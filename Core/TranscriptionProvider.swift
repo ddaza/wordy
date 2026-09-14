@@ -1,19 +1,16 @@
 import Foundation
 
-public enum TranscriptionMode: String, Sendable, Codable { case local, cloud }
-
+/// A request to transcribe a local recording. Wordy runs every transcription on
+/// the user's Mac; requests are only ever constructed for file URLs.
 public struct TranscriptionRequest: Sendable {
-    public enum RequestError: Error { case cloudConsentRequired, localFileRequired }
+    public enum RequestError: Error { case localFileRequired }
     public let id: UUID
     public let audioURL: URL
-    public let mode: TranscriptionMode
 
-    public init(audioURL: URL, mode: TranscriptionMode = .local, explicitCloudConsent: Bool = false) throws {
+    public init(audioURL: URL) throws {
         guard audioURL.isFileURL else { throw RequestError.localFileRequired }
-        guard mode != .cloud || explicitCloudConsent else { throw RequestError.cloudConsentRequired }
         id = UUID()
         self.audioURL = audioURL
-        self.mode = mode
     }
 }
 
@@ -24,7 +21,8 @@ public struct TranscriptionBatch: Sendable {
     public let modelVersion: String
 }
 
-/// Future local/cloud adapters share result types without sharing job lifecycle internals.
+/// Engine adapters share result types without sharing job lifecycle internals,
+/// so an alternative on-device engine can be evaluated behind the same contract.
 public protocol TranscriptionProvider: Sendable {
     func transcribe(_ request: TranscriptionRequest) -> AsyncThrowingStream<TranscriptionBatch, Error>
     func cancel(requestID: UUID) async

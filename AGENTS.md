@@ -12,9 +12,9 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 
 ## Product requirements to preserve
 
-- Local transcription is the default. Cloud acceleration is optional and explicitly selected per recording or batch.
-- Never silently upload lecture audio or transcripts because local processing is slow, unavailable, or has failed.
-- Users must not need Terminal, package managers, developer tools, provider API keys, or manual model installation.
+- Wordy is a desktop-only application. All transcription runs on the user's Mac; there is no cloud transcription mode, fallback, or backend, and none should be added.
+- Never upload lecture audio or transcripts anywhere. The only network traffic is Google Drive import, pinned model downloads, and signed app updates.
+- Users must not need Terminal, package managers, developer tools, online accounts other than Google Drive, or manual model installation.
 - Support native `arm64` and `x86_64` execution. The provisional minimum is macOS 14; do not raise it or remove Intel support incidentally.
 - Preserve responsive playback, scrolling, search, and navigation during inference.
 - Preserve original audio timing through decoding, silence handling, chunking, and caption generation.
@@ -26,12 +26,12 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 
 - Use Swift for application code, SwiftUI for the shell, and AppKit where the transcript surface needs controlled reuse and incremental updates.
 - Use AVFoundation for playback and incremental audio preparation.
-- Keep local inference behind a provider interface in a bundled XPC service using a pinned `whisper.cpp` integration.
+- Keep local inference behind an engine interface in a bundled XPC service using a pinned `whisper.cpp` integration.
 - Keep blocking inference, decoding, indexing, networking, and database queries off the main actor. An async declaration alone does not move blocking work off its executor.
 - Bound concurrency, queues, decoded buffers, and messages. Begin with one local inference worker and tune from measurements.
 - Store structured transcript data and durable job state in SQLite through GRDB. Keep secrets in Keychain.
 - Keep database writes coordinated by the app; return bounded worker results through XPC.
-- Normalize all provider output into a common timestamped schema. Persist source version, engine/model version, and configuration.
+- Normalize all engine output into a common timestamped schema. Persist source version, engine/model version, and configuration.
 - Prefer existing native facilities. Add dependencies only for concrete requirements and document significant tradeoffs.
 
 ## Transcript and playback correctness
@@ -49,14 +49,13 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Validate bookmark times against the source duration and seek through the existing playback controller.
 - Generate text exports locally from ordered committed segments. Use a native save panel and an atomic destination replacement so failed exports do not leave truncated files.
 
-## Google Drive and cloud boundaries
+## Google Drive and privacy boundaries
 
 - Use a supported external-browser OAuth flow with PKCE/state validation and Keychain token storage.
 - `drive.file` is for explicitly authorized files. Do not assume selecting a folder grants access to every child.
 - Broad browsing/watched folders require a deliberate permission and verification design.
-- Keep transcription provider secrets on the backend. Google Drive authorization is not generic backend authentication.
-- Cloud requests must follow the explicit user choice, show applicable cost/allowance, and accurately describe data handling.
-- Do not log audio, transcript contents, tokens, signed download URLs, or provider secrets. Use redacted identifiers and timing metrics for diagnostics.
+- Do not log audio, transcript contents, tokens, or signed download URLs. Use redacted identifiers and timing metrics for diagnostics.
+- Do not add telemetry or crash reporting that could carry transcript text or recording identifiers.
 - Do not commit private lecture fixtures, credentials, model weights, or generated artifacts.
 
 ## Implementation workflow
@@ -71,7 +70,7 @@ Open `Wordy.xcodeproj`, select the Wordy scheme and My Mac, then use Run or Test
 
 ## Verification expectations
 
-- Protect timing conversion, overlap reconciliation, search mapping, checkpoint recovery, source invalidation, migrations, and explicit cloud selection with meaningful tests.
+- Protect timing conversion, overlap reconciliation, search mapping, checkpoint recovery, source invalidation, and migrations with meaningful tests.
 - Exercise long recordings, silence, repeated phrases, unsupported formats, worker failure, sleep/wake, disk exhaustion, and interrupted downloads.
 - Measure performance in release builds on physical M1 and supported Intel hardware. Rosetta testing alone is insufficient for Intel performance claims.
 - Treat `PLAN.md` latency budgets as targets until measured. Include hardware, OS, model, corpus, and test conditions with benchmark results.
@@ -85,4 +84,5 @@ Open `Wordy.xcodeproj`, select the Wordy scheme and My Mac, then use Run or Test
 - Validate clean installation and first launch without developer tooling installed.
 - Direct distribution uses Developer ID signing, hardened runtime, notarization/stapling, and signed Sparkle updates.
 - Distinguish preparing a release artifact from publishing it. Follow the user's authorized release scope.
-- Planning documents do not authorize uploading real lectures, spending provider funds, or publishing an application.
+- Planning documents do not authorize uploading real lectures or publishing an application.
+- Wordy is MIT licensed (`LICENSE`). Keep `THIRD_PARTY_NOTICES.md` current when adding or changing bundled dependencies.
