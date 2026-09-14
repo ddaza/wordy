@@ -1,0 +1,6 @@
+pre-commit:
+  jobs:
+    - name: format Swift 
+      glob: "*.swift" # glob filter
+      exclude:
+      run: swiftformat {staged_files}

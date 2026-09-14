@@ -10,4 +10,4 @@ DerivedData/
 *.gguf
 ggml-*.bin
 PrivateFixtures/
-
+tags
