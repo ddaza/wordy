@@ -56,7 +56,9 @@ struct LibraryView: View {
         }
         .toolbar {
             ToolbarItem {
-                if library.isImporting { ProgressView().controlSize(.small) }
+                if library.isImporting {
+                    ProgressView().controlSize(.small)
+                }
             }
             ToolbarItem {
                 Button { library.chooseAudio() } label: { Label("Import Audio", systemImage: "plus") }
@@ -68,7 +70,11 @@ struct LibraryView: View {
         }
         .alert("Import unavailable", isPresented: Binding(
             get: { library.errorMessage != nil },
-            set: { if !$0 { library.errorMessage = nil } }
+            set: {
+                if !$0 {
+                    library.errorMessage = nil
+                }
+            },
         )) {
             Button("OK", role: .cancel) { library.errorMessage = nil }
         } message: { Text(library.errorMessage ?? "") }

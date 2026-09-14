@@ -7,7 +7,7 @@ final class TranscriptionWorker: NSObject, TranscriptionWorkerProtocol {
 }
 
 final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
-    func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
+    func listener(_: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         connection.exportedInterface = NSXPCInterface(with: TranscriptionWorkerProtocol.self)
         connection.exportedObject = TranscriptionWorker()
         connection.resume()

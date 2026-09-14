@@ -17,10 +17,13 @@ struct PlayerView: View {
                     .frame(minWidth: 52, alignment: .trailing)
                 Slider(value: Binding(
                     get: { isScrubbing ? scrubTime : min(playback.time, playback.duration) },
-                    set: { scrubTime = $0 }
-                ), in: 0...max(playback.duration, 1), onEditingChanged: { editing in
-                    if editing { scrubTime = playback.time; isScrubbing = true }
-                    else { isScrubbing = false; playback.seek(to: scrubTime) }
+                    set: { scrubTime = $0 },
+                ), in: 0 ... max(playback.duration, 1), onEditingChanged: { editing in
+                    if editing {
+                        scrubTime = playback.time; isScrubbing = true
+                    } else {
+                        isScrubbing = false; playback.seek(to: scrubTime)
+                    }
                 })
                 .accessibilityLabel("Playback position")
                 Text(playbackTime(playback.duration)).monospacedDigit().frame(minWidth: 52, alignment: .leading)
@@ -42,7 +45,7 @@ struct PlayerView: View {
                     .accessibilityLabel("Forward 15 seconds")
                 Spacer()
                 Image(systemName: "speaker.wave.2").foregroundStyle(.secondary)
-                Slider(value: $playback.volume, in: 0...1).frame(width: 90).accessibilityLabel("Volume")
+                Slider(value: $playback.volume, in: 0 ... 1).frame(width: 90).accessibilityLabel("Volume")
             }
         }
         .padding(20)

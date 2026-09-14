@@ -11,7 +11,7 @@ public struct TranscriptionRequest: Sendable {
     public init(audioURL: URL, mode: TranscriptionMode = .local, explicitCloudConsent: Bool = false) throws {
         guard audioURL.isFileURL else { throw RequestError.localFileRequired }
         guard mode != .cloud || explicitCloudConsent else { throw RequestError.cloudConsentRequired }
-        self.id = UUID()
+        id = UUID()
         self.audioURL = audioURL
         self.mode = mode
     }

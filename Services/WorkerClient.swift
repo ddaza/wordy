@@ -7,7 +7,9 @@ final class WorkerClient {
     private var timeout: Task<Void, Never>?
 
     func readiness() async -> String {
-        if pending != nil { return "Checking local engine…" }
+        if pending != nil {
+            return "Checking local engine…"
+        }
         return await withCheckedContinuation { continuation in
             pending = continuation
             let connection = NSXPCConnection(serviceName: WorkerIdentity.serviceName)

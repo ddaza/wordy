@@ -7,6 +7,6 @@ let package = Package(
     products: [.library(name: "WordyCore", targets: ["WordyCore"])],
     targets: [
         .target(name: "WordyCore", path: "Core"),
-        .testTarget(name: "WordyCoreTests", dependencies: ["WordyCore"], path: "Tests")
-    ]
+        .testTarget(name: "WordyCoreTests", dependencies: ["WordyCore"], path: "Tests"),
+    ],
 )

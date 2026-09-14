@@ -24,7 +24,8 @@ public struct TranscriptTimeline: Sendable {
         var ids = Set<UUID>()
         for segment in segments {
             guard segment.start.isFinite, segment.end.isFinite,
-                  segment.start >= 0, segment.end > segment.start else {
+                  segment.start >= 0, segment.end > segment.start
+            else {
                 throw ValidationError.invalidInterval
             }
             guard segment.start >= previousEnd else { throw ValidationError.overlappingSegments }
@@ -40,7 +41,11 @@ public struct TranscriptTimeline: Sendable {
         var high = segments.count
         while low < high {
             let middle = low + (high - low) / 2
-            if segments[middle].start <= time { low = middle + 1 } else { high = middle }
+            if segments[middle].start <= time {
+                low = middle + 1
+            } else {
+                high = middle
+            }
         }
         guard low > 0, time < segments[low - 1].end else { return nil }
         return segments[low - 1]

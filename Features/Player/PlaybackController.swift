@@ -8,8 +8,18 @@ final class PlaybackController {
     private(set) var isPlaying = false
     private(set) var hasAudio = false
     private(set) var activeSegmentID: UUID?
-    var speed: Float = 1 { didSet { if isPlaying { player.rate = speed } } }
-    var volume: Float = 1 { didSet { player.volume = volume } }
+    var speed: Float = 1 {
+        didSet {
+            if isPlaying {
+                player.rate = speed
+            }
+        }
+    }
+
+    var volume: Float = 1 {
+        didSet { player.volume = volume }
+    }
+
     @ObservationIgnored private let player = AVPlayer()
     @ObservationIgnored private var observer: Any?
     @ObservationIgnored private var endObserver: NSObjectProtocol?
@@ -18,7 +28,7 @@ final class PlaybackController {
 
     init() {
         observer = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main
+            forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main,
         ) { [weak self] time in
             Task { @MainActor in self?.updateTime(time.seconds) }
         }
@@ -26,7 +36,9 @@ final class PlaybackController {
 
     func load(url: URL?, duration: TimeInterval, timeline: TranscriptTimeline) {
         player.pause()
-        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
         endObserver = nil
         player.replaceCurrentItem(with: nil)
         scopedURL?.stopAccessingSecurityScopedResource()
@@ -36,12 +48,14 @@ final class PlaybackController {
         isPlaying = false
         hasAudio = url != nil
         if let url {
-            if url.startAccessingSecurityScopedResource() { scopedURL = url }
+            if url.startAccessingSecurityScopedResource() {
+                scopedURL = url
+            }
             let item = AVPlayerItem(url: url)
             item.audioTimePitchAlgorithm = .timeDomain
             player.replaceCurrentItem(with: item)
             endObserver = NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+                forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main,
             ) { [weak self] _ in
                 Task { @MainActor in self?.isPlaying = false }
             }
@@ -51,8 +65,12 @@ final class PlaybackController {
 
     func togglePlayback() {
         guard hasAudio else { return }
-        if isPlaying { player.pause() } else {
-            if time >= duration { seek(to: 0) }
+        if isPlaying {
+            player.pause()
+        } else {
+            if time >= duration {
+                seek(to: 0)
+            }
             player.playImmediately(atRate: speed)
         }
         isPlaying.toggle()
@@ -69,14 +87,20 @@ final class PlaybackController {
         guard value.isFinite else { return }
         time = max(0, value)
         let id = hasAudio ? timeline.activeSegment(at: time)?.id : nil
-        if activeSegmentID != id { activeSegmentID = id }
+        if activeSegmentID != id {
+            activeSegmentID = id
+        }
     }
 
     func shutdown() {
         player.pause()
-        if let observer { player.removeTimeObserver(observer) }
+        if let observer {
+            player.removeTimeObserver(observer)
+        }
         observer = nil
-        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
         endObserver = nil
         player.replaceCurrentItem(with: nil)
         scopedURL?.stopAccessingSecurityScopedResource()
@@ -86,6 +110,8 @@ final class PlaybackController {
 
 func playbackTime(_ seconds: TimeInterval) -> String {
     let value = seconds.isFinite ? Int(max(0, seconds)) : 0
-    if value >= 3600 { return String(format: "%d:%02d:%02d", value / 3600, value / 60 % 60, value % 60) }
+    if value >= 3600 {
+        return String(format: "%d:%02d:%02d", value / 3600, value / 60 % 60, value % 60)
+    }
     return String(format: "%d:%02d", value / 60, value % 60)
 }

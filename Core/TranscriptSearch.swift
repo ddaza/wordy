@@ -15,7 +15,9 @@ public enum TranscriptSearch {
         var document = ""
         var offsets: [(offset: Int, segment: TranscriptSegment)] = []
         for segment in segments {
-            if !document.isEmpty { document += " " }
+            if !document.isEmpty {
+                document += " "
+            }
             offsets.append((document.utf16.count, segment))
             document += segment.text
         }

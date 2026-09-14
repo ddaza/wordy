@@ -11,7 +11,9 @@ struct TranscriptCollectionView: NSViewRepresentable {
     let onManualScroll: () -> Void
     let onSelect: (TranscriptSegment) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
@@ -30,14 +32,14 @@ struct TranscriptCollectionView: NSViewRepresentable {
         scroll.documentView = collection
         context.coordinator.collection = collection
         context.coordinator.scrollObserver = NotificationCenter.default.addObserver(
-            forName: NSScrollView.willStartLiveScrollNotification, object: scroll, queue: .main
+            forName: NSScrollView.willStartLiveScrollNotification, object: scroll, queue: .main,
         ) { [weak coordinator = context.coordinator] _ in
             Task { @MainActor in coordinator?.parent.onManualScroll() }
         }
         return scroll
     }
 
-    func updateNSView(_ view: NSScrollView, context: Context) {
+    func updateNSView(_: NSScrollView, context: Context) {
         let coordinator = context.coordinator
         let previous = coordinator.parent
         coordinator.parent = self
@@ -59,8 +61,10 @@ struct TranscriptCollectionView: NSViewRepresentable {
         }
     }
 
-    static func dismantleNSView(_ view: NSScrollView, coordinator: Coordinator) {
-        if let observer = coordinator.scrollObserver { NotificationCenter.default.removeObserver(observer) }
+    static func dismantleNSView(_: NSScrollView, coordinator: Coordinator) {
+        if let observer = coordinator.scrollObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         coordinator.scrollObserver = nil
     }
 
@@ -69,9 +73,11 @@ struct TranscriptCollectionView: NSViewRepresentable {
         weak var collection: NSCollectionView?
         var scrollObserver: NSObjectProtocol?
         var hasLoaded = false
-        init(_ parent: TranscriptCollectionView) { self.parent = parent }
+        init(_ parent: TranscriptCollectionView) {
+            self.parent = parent
+        }
 
-        func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
+        func collectionView(_: NSCollectionView, numberOfItemsInSection _: Int) -> Int {
             parent.segments.count
         }
 
@@ -88,12 +94,15 @@ struct TranscriptCollectionView: NSViewRepresentable {
         }
 
         func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
-            if let index = indexPaths.first?.item { parent.onSelect(parent.segments[index]) }
+            if let index = indexPaths.first?.item {
+                parent.onSelect(parent.segments[index])
+            }
             collectionView.deselectAll(nil)
         }
 
-        func collectionView(_ collectionView: NSCollectionView, layout: NSCollectionViewLayout,
-                            sizeForItemAt indexPath: IndexPath) -> NSSize {
+        func collectionView(_ collectionView: NSCollectionView, layout _: NSCollectionViewLayout,
+                            sizeForItemAt indexPath: IndexPath) -> NSSize
+        {
             let width = max(200, (collectionView.enclosingScrollView?.contentSize.width ?? 600) - 40)
             let textWidth = max(120, width - 32)
             let text = parent.segments[indexPath.item].text as NSString
@@ -135,7 +144,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
-            passage.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            passage.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
     }
 

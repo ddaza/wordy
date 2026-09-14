@@ -10,12 +10,18 @@ struct ImportedAudio: Sendable {
 actor AudioImporter {
     enum ImportError: LocalizedError {
         case unsupported
-        var errorDescription: String? { "This file does not contain supported, playable audio." }
+        var errorDescription: String? {
+            "This file does not contain supported, playable audio."
+        }
     }
 
     func inspect(_ url: URL) async throws -> ImportedAudio {
         let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        defer {
+            if scoped {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
         let asset = AVURLAsset(url: url)
         let playable = try await asset.load(.isPlayable)
         let tracks = try await asset.loadTracks(withMediaType: .audio)

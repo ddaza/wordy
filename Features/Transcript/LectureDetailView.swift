@@ -52,7 +52,9 @@ struct LectureDetailView: View {
                                     Button {
                                         followPlayback = false
                                         scrollTarget = hit.id
-                                        if playback.hasAudio { playback.seek(to: hit.time) }
+                                        if playback.hasAudio {
+                                            playback.seek(to: hit.time)
+                                        }
                                     } label: {
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(playbackTime(hit.time)).monospacedDigit()
@@ -71,7 +73,7 @@ struct LectureDetailView: View {
                     scrollTarget: scrollTarget,
                     followPlayback: followPlayback,
                     onManualScroll: { followPlayback = false },
-                    onSelect: { playback.seek(to: $0.start) }
+                    onSelect: { playback.seek(to: $0.start) },
                 )
             }
             Divider()
