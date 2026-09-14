@@ -38,9 +38,9 @@ Models are the multilingual ggml conversions published by the whisper.cpp projec
 
 Digests were computed on 2026-09-13 from files whose SHA-1 matched `models/README.md` in the pinned whisper.cpp release (the quantized file has no upstream digest and is pinned only by its measured SHA-256).
 
-Installation flow (`Services/ModelManager.swift`): download to `<Application Support>/Wordy/Models/<file>.partial` with HTTP range resume → stream SHA-256 → atomic `replaceItemAt` to the final name. A file at the final path is therefore always a verified model. Downloads are cancellable; a checksum mismatch discards the file.
+Installation flow (`Services/ModelManager.swift`): download to `<Application Support>/Wordy/Models/<file>.partial` with HTTP range resume → stream SHA-256 → atomic `replaceItemAt` to the final name. A file at the final path is therefore always a verified model. Downloads are cancellable; a checksum mismatch discards the file. Settings can download every catalog model; only the one marked **In use** (`wordy.selectedModelID`) is passed to the worker. The first installed model is selected automatically; **Use** switches. Removing the in-use model leaves none selected until another is chosen.
 
-Provisional recommendation exposed to users: `whisper-small` on Apple Silicon, `whisper-base` on Intel, pending the physical-hardware measurements below.
+Provisional recommendation offered when nothing is selected yet: `whisper-small` on Apple Silicon, `whisper-base` on Intel, pending the physical-hardware measurements below.
 
 ## Worker protocol
 

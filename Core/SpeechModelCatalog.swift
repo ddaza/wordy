@@ -51,9 +51,9 @@ public enum SpeechModelCatalog {
 
     private static func catalogURL() -> URL? {
         #if SWIFT_PACKAGE
-        if let url = Bundle.module.url(forResource: "SpeechModels", withExtension: "json") {
-            return url
-        }
+            if let url = Bundle.module.url(forResource: "SpeechModels", withExtension: "json") {
+                return url
+            }
         #endif
         if let url = Bundle.main.url(forResource: "SpeechModels", withExtension: "json") {
             return url

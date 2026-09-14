@@ -11,6 +11,10 @@ struct TranscriptionStatusView: View {
         coordinator.jobs[lecture.id]
     }
 
+    private var modelNeeded: SpeechModel {
+        models.selectedModel ?? models.recommended
+    }
+
     var body: some View {
         if let job {
             HStack(spacing: 12) {
@@ -63,7 +67,7 @@ struct TranscriptionStatusView: View {
         case .identifying:
             return "Reading the file to identify it. Nothing leaves your Mac."
         case .waitingForModel:
-            return "Download \(models.recommended.displayName) (\(models.recommended.sizeDescription)) once; transcription then runs locally."
+            return "Download \(modelNeeded.displayName) (\(modelNeeded.sizeDescription)) once; transcription then runs locally."
         case .queued:
             return "Transcription runs one lecture at a time so playback stays smooth."
         case .running:
@@ -85,7 +89,7 @@ struct TranscriptionStatusView: View {
     private func actions(for job: TranscriptionCoordinator.Job) -> some View {
         switch job.status {
         case .waitingForModel:
-            ModelInstallButton(model: models.recommended, models: models)
+            ModelInstallButton(model: modelNeeded, models: models)
         case .running, .queued:
             Button("Pause") { coordinator.pause(lectureID: lecture.id) }
         case .paused:

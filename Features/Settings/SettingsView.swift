@@ -14,6 +14,10 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Speech models") {
+                LabeledContent("In use") {
+                    Text(library.models.selectedModel?.displayName ?? "None")
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(library.models.catalog) { model in
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: 3) {
@@ -24,19 +28,20 @@ struct SettingsView: View {
                                         .padding(.horizontal, 6).padding(.vertical, 2)
                                         .background(.tint.opacity(0.15), in: Capsule())
                                 }
+                                if model.id == library.models.selectedID, library.models.installedURL(for: model) != nil {
+                                    Text("In use").font(.caption2.weight(.semibold))
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(.green.opacity(0.18), in: Capsule())
+                                }
                             }
                             Text("\(model.sizeDescription) · \(model.summary)").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if library.models.state(of: model) == .installed {
-                            Button("Remove") { library.models.remove(model) }
-                        } else {
-                            ModelInstallButton(model: model, models: library.models)
-                        }
+                        modelActions(model)
                     }
                     .padding(.vertical, 2)
                 }
-                Text("Models are downloaded from the whisper.cpp project, verified against a pinned checksum, and stored in Wordy's Application Support folder.")
+                Text("Download any of these models. Wordy uses only the one marked In use, for every lecture.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Connections") {
@@ -46,7 +51,22 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560, height: 520)
+        .frame(width: 560, height: 560)
         .task { status = await library.worker.readiness() }
+    }
+
+    @ViewBuilder
+    private func modelActions(_ model: SpeechModel) -> some View {
+        let models = library.models
+        if models.state(of: model) == .installed {
+            HStack(spacing: 8) {
+                if model.id != models.selectedID {
+                    Button("Use") { models.select(model) }
+                }
+                Button("Remove") { models.remove(model) }
+            }
+        } else {
+            ModelInstallButton(model: model, models: models)
+        }
     }
 }

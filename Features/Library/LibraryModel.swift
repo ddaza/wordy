@@ -83,6 +83,7 @@ final class LibraryModel {
                 autoplay = true
             case "--install-model":
                 if let id = iterator.next(), let model = SpeechModelCatalog.model(id: id) {
+                    models.select(model)
                     models.install(model)
                 }
             default:
