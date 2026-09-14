@@ -8,6 +8,7 @@ struct TranscriptionStatusView: View {
     let models: ModelManager
     let isDismissed: Bool
     let onDismiss: () -> Void
+    let onRetranscribe: () -> Void
 
     private var job: TranscriptionCoordinator.Job? {
         coordinator.jobs[lecture.id]
@@ -28,6 +29,7 @@ struct TranscriptionStatusView: View {
                 Spacer(minLength: 8)
                 actions(for: job)
                 if case .complete = job.status {
+                    Button("Transcribe Again…") { onRetranscribe() }
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
                             .font(.caption.weight(.semibold))
@@ -98,6 +100,9 @@ struct TranscriptionStatusView: View {
         case .paused:
             return "Completed work through \(playbackTime(job.completedThrough)) is saved."
         case .complete:
+            if let id = job.modelID, let name = SpeechModelCatalog.model(id: id)?.displayName {
+                return "All \(job.segments.count) passages are searchable. Transcribed with \(name)."
+            }
             return "All \(job.segments.count) passages are searchable."
         case let .failed(message):
             return message
@@ -113,8 +118,10 @@ struct TranscriptionStatusView: View {
             Button("Pause") { coordinator.pause(lectureID: lecture.id) }
         case .paused:
             Button("Resume") { coordinator.resume(lectureID: lecture.id) }
+            Button("Transcribe Again…") { onRetranscribe() }
         case .failed:
             Button("Retry") { coordinator.resume(lectureID: lecture.id) }
+            Button("Transcribe Again…") { onRetranscribe() }
         case .identifying, .complete:
             EmptyView()
         }

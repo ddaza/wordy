@@ -101,11 +101,45 @@ final class TranscriptionCoordinator {
         }
     }
 
+    /// Discards the committed checkpoint and transcribes again with the model
+    /// currently in use. In-flight work for this lecture is cancelled first.
+    func retranscribe(lectureID: UUID) {
+        Task { await performRetranscribe(lectureID) }
+    }
+
     /// Called when a model finishes installing so waiting lectures can start.
     func modelBecameAvailable() {
         for (id, job) in jobs where job.status == .waitingForModel {
             enqueue(id)
         }
+    }
+
+    private func performRetranscribe(_ lectureID: UUID) async {
+        guard jobs[lectureID]?.sha256 != nil else { return }
+        if activeLectureID == lectureID {
+            let inFlight = activeTask
+            inFlight?.cancel()
+            if let activeJobID {
+                worker.cancel(jobID: activeJobID)
+            }
+            await inFlight?.value
+        } else if let index = queue.firstIndex(of: lectureID) {
+            queue.remove(at: index)
+        }
+        guard let digest = jobs[lectureID]?.sha256 else { return }
+        do {
+            try await store.delete(sha256: digest)
+        } catch {
+            jobs[lectureID]?.status = .failed("The previous transcript could not be cleared.")
+            return
+        }
+        jobs[lectureID]?.segments = []
+        jobs[lectureID]?.completedThrough = 0
+        jobs[lectureID]?.restoredFromCheckpoint = false
+        jobs[lectureID]?.modelID = nil
+        jobs[lectureID]?.lastRealTimeFactor = nil
+        onSegmentsChanged?(lectureID, [], digest)
+        enqueue(lectureID)
     }
 
     // MARK: - Identification and restore

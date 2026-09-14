@@ -8,6 +8,7 @@ struct LectureDetailView: View {
     @State private var followPlayback = true
     @State private var scrollTarget: UUID?
     @AppStorage("wordy.bookmarksCollapsed") private var bookmarksCollapsed = false
+    @State private var confirmRetranscribe = false
 
     private var playback: PlaybackController {
         library.playback
@@ -31,9 +32,14 @@ struct LectureDetailView: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Toggle("Follow playback", isOn: $followPlayback)
-                    .toggleStyle(.button)
-                    .disabled(!playback.hasAudio || lecture.segments.isEmpty)
+                HStack(spacing: 8) {
+                    if canRetranscribe {
+                        Button("Transcribe Again…") { confirmRetranscribe = true }
+                    }
+                    Toggle("Follow playback", isOn: $followPlayback)
+                        .toggleStyle(.button)
+                        .disabled(!playback.hasAudio || lecture.segments.isEmpty)
+                }
             }
             .padding(24)
             if !lecture.isSample {
@@ -43,6 +49,7 @@ struct LectureDetailView: View {
                     models: library.models,
                     isDismissed: library.dismissedStatusLectureIDs.contains(lecture.id),
                     onDismiss: { library.dismissTranscriptionStatus(for: lecture.id) },
+                    onRetranscribe: { confirmRetranscribe = true },
                 )
             }
             Divider()
@@ -81,6 +88,39 @@ struct LectureDetailView: View {
                 bookmarksCollapsed = false
             }
         }
+        .confirmationDialog("Transcribe Again", isPresented: $confirmRetranscribe, titleVisibility: .visible) {
+            Button("Transcribe Again", role: .destructive) {
+                library.retranscribe(lecture)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(retranscribeMessage)
+        }
+    }
+
+    private var canRetranscribe: Bool {
+        guard !lecture.isSample, let job, job.sha256 != nil else { return false }
+        switch job.status {
+        case .identifying: return false
+        default: return true
+        }
+    }
+
+    private var retranscribeMessage: String {
+        let model = library.models.readyModel?.displayName ?? "the speech model you select"
+        var text = "This replaces the current transcript using \(model). Completed passages are discarded. Bookmarks are kept."
+        if let job {
+            switch job.status {
+            case .running, .queued:
+                text += " Transcription in progress will be stopped."
+            default:
+                break
+            }
+        }
+        if library.models.readyModel == nil {
+            text += " Download a model first if none is in use."
+        }
+        return text
     }
 
     @ViewBuilder

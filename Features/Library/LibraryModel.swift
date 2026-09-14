@@ -171,4 +171,9 @@ final class LibraryModel {
     func dismissTranscriptionStatus(for lectureID: UUID) {
         dismissedStatusLectureIDs.insert(lectureID)
     }
+
+    func retranscribe(_ lecture: Lecture) {
+        dismissedStatusLectureIDs.remove(lecture.id)
+        coordinator.retranscribe(lectureID: lecture.id)
+    }
 }

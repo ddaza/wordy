@@ -17,7 +17,7 @@ A native macOS lecture player and transcription app, targeting macOS 14+ on Inte
 - Native library window, local audio file selection, asynchronous media inspection, and AVPlayer playback with seeking, skip, speed, and volume.
 - Local transcription through a bundled XPC worker running pinned `whisper.cpp` (Metal on Apple Silicon, AVX2 CPU path on Intel).
 - One-click model download from a pinned manifest with resume, SHA-256 verification, and atomic activation.
-- Incremental results: passages appear per completed section while later sections stay visibly pending; playback and search work on the partial transcript.
+- Incremental results: passages appear per completed section while later sections stay visibly pending; playback and search work on the partial transcript. Transcribe Again discards the checkpoint and starts a new generation with the model currently in use.
 - Checkpointed jobs keyed by the recording's SHA-256: pause, resume, quit, worker crash, and re-import all continue from the last committed section.
 - Reusable AppKit transcript view with incremental row insertion, phrase search across passage boundaries, search-to-seek, follow-playback, and per-recording bookmarks (pin beside a passage timestamp; collapsible inspector on the right when the open recording has pins).
 - `wordy-bench` command-line harness and `scripts/bench-matrix.sh` for repeatable engine/model/chunk-policy measurements.

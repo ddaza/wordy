@@ -41,7 +41,7 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 2)
                 }
-                Text("Download any of these models. Wordy uses only the one marked In use, for every lecture.")
+                Text("Download any of these models. Wordy uses only the one marked In use, including when you transcribe a lecture again.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Connections") {
