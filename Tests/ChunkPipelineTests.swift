@@ -218,11 +218,15 @@ import Testing
     #expect(throws: TranscriptionProtocol.MessageError.self) { try future.validate() }
 }
 
-@Test func `catalog only recommends pinned models and refuses unpinned digests`() {
+@Test func `catalog loads pinned models from the bundled config`() {
+    #expect(SpeechModelCatalog.downloadBaseURL.scheme == "https")
     #expect(SpeechModelCatalog.model(id: SpeechModelCatalog.recommendedModelID(isAppleSilicon: true)) != nil)
     #expect(SpeechModelCatalog.model(id: SpeechModelCatalog.recommendedModelID(isAppleSilicon: false)) != nil)
+    #expect(!SpeechModelCatalog.models.isEmpty)
     for model in SpeechModelCatalog.models {
         #expect(model.downloadURL.scheme == "https")
-        #expect(model.sha256.isEmpty || model.sha256.count == 64)
+        #expect(model.sha256.count == 64)
+        #expect(model.isPinned)
+        #expect(model.downloadURL.lastPathComponent == model.fileName || model.downloadURL.absoluteString.contains(model.fileName))
     }
 }

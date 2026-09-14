@@ -46,7 +46,7 @@ final class LibraryModel {
         coordinator.onSegmentsChanged = { [weak self] lectureID, segments, sha256 in
             self?.apply(segments: segments, sha256: sha256, to: lectureID)
         }
-        models.onInstalled = { [weak self] _ in
+        models.onReadyModelChanged = { [weak self] in
             self?.coordinator.modelBecameAvailable()
         }
     }

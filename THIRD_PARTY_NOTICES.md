@@ -38,6 +38,6 @@ SOFTWARE.
 Speech models are not part of this repository. At the user's request the app
 downloads ggml-format conversions of OpenAI's Whisper models from
 <https://huggingface.co/ggerganov/whisper.cpp>, verified against the SHA-256
-values pinned in `Core/SpeechModelCatalog.swift`. The Whisper model weights are
+values pinned in `Core/SpeechModels.json`. The Whisper model weights are
 released by OpenAI under the MIT License
 (<https://github.com/openai/whisper/blob/main/LICENSE>).

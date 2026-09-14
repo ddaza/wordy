@@ -20,16 +20,42 @@ final class ModelManager {
     private(set) var states: [String: State] = [:]
     let catalog = SpeechModelCatalog.models
     let recommended: SpeechModel
-    /// Invoked after a model is verified and activated.
-    var onInstalled: ((SpeechModel) -> Void)?
+    /// The catalog model Wordy will use for every new transcription job.
+    private(set) var selectedID: String?
+    /// Invoked when the selected model is installed and ready for jobs.
+    var onReadyModelChanged: (() -> Void)?
     private let directory: URL
+    private let defaults: UserDefaults
     @ObservationIgnored private var tasks: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private let downloader = ModelDownloader()
 
-    init(directory: URL = AppDirectories.models) {
+    private static let selectedModelKey = "wordy.selectedModelID"
+
+    init(directory: URL = AppDirectories.models, defaults: UserDefaults = .standard) {
         self.directory = directory
+        self.defaults = defaults
         recommended = SpeechModelCatalog.model(id: SpeechModelCatalog.recommendedModelID(isAppleSilicon: HostDescription.isAppleSilicon))!
+        selectedID = defaults.string(forKey: Self.selectedModelKey)
+        if let selectedID, SpeechModelCatalog.model(id: selectedID) == nil {
+            self.selectedID = nil
+        }
         refresh()
+        if selectedID == nil {
+            recoverSelection()
+        }
+    }
+
+    var selectedModel: SpeechModel? {
+        selectedID.flatMap(SpeechModelCatalog.model(id:))
+    }
+
+    /// The single model transcription jobs should use. Nil until an installed
+    /// catalog model has been picked.
+    var readyModel: SpeechModel? {
+        guard let selected = selectedModel, installedURL(for: selected) != nil else {
+            return nil
+        }
+        return selected
     }
 
     func state(of model: SpeechModel) -> State {
@@ -41,18 +67,26 @@ final class ModelManager {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    /// The model transcription jobs should use: the recommendation if installed,
-    /// otherwise any installed catalog model.
-    var readyModel: SpeechModel? {
-        if installedURL(for: recommended) != nil {
-            return recommended
-        }
-        return catalog.first { installedURL(for: $0) != nil }
-    }
-
     func refresh() {
         for model in catalog where tasks[model.id] == nil {
             states[model.id] = installedURL(for: model) != nil ? .installed : .notInstalled
+        }
+    }
+
+    /// Makes this the model used for every new transcription job.
+    func select(_ model: SpeechModel) {
+        selectedID = model.id
+        defaults.set(model.id, forKey: Self.selectedModelKey)
+        if installedURL(for: model) != nil {
+            onReadyModelChanged?()
+        }
+    }
+
+    private func recoverSelection() {
+        if installedURL(for: recommended) != nil {
+            select(recommended)
+        } else if let installed = catalog.first(where: { installedURL(for: $0) != nil }) {
+            select(installed)
         }
     }
 
@@ -84,7 +118,11 @@ final class ModelManager {
             }
             _ = try FileManager.default.replaceItemAt(destination, withItemAt: partial)
             states[model.id] = .installed
-            onInstalled?(model)
+            if selectedID == nil {
+                select(model)
+            } else if selectedID == model.id {
+                onReadyModelChanged?()
+            }
         } catch is CancellationError {
             states[model.id] = .notInstalled
         } catch {
@@ -106,6 +144,10 @@ final class ModelManager {
         guard tasks[model.id] == nil, let url = installedURL(for: model) else { return }
         try? FileManager.default.removeItem(at: url)
         states[model.id] = .notInstalled
+        if selectedID == model.id {
+            selectedID = nil
+            defaults.removeObject(forKey: Self.selectedModelKey)
+        }
     }
 }
 

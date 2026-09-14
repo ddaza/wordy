@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [.library(name: "WordyCore", targets: ["WordyCore"])],
     targets: [
-        .target(name: "WordyCore", path: "Core"),
+        .target(name: "WordyCore", path: "Core", resources: [.copy("SpeechModels.json")]),
         .testTarget(name: "WordyCoreTests", dependencies: ["WordyCore"], path: "Tests"),
     ],
 )

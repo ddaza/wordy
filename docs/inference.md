@@ -28,7 +28,7 @@ Rebuild after changing the pin: `make engine-clean engine`. The Xcode script pha
 
 ## Speech model manifest
 
-Models are the multilingual ggml conversions published by the whisper.cpp project at `https://huggingface.co/ggerganov/whisper.cpp`. The app only activates a download whose SHA-256 matches `Core/SpeechModelCatalog.swift`.
+Models are the multilingual ggml conversions published by the whisper.cpp project. The download host, filenames, recommended IDs, and SHA-256 pins live in `Core/SpeechModels.json` (bundled into the app). Change `downloadBaseURL` there if the host moves; an optional per-model `downloadURL` overrides the base. The app only activates a download whose SHA-256 matches the pin — a new file at the same URL is discarded, so already-installed models keep working.
 
 | ID | File | Bytes | SHA-256 | Upstream SHA-1 |
 | --- | --- | --- | --- | --- |

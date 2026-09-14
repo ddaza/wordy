@@ -65,7 +65,7 @@ The Universal Release app is produced at `build/DerivedData/Build/Products/Relea
 | `Makefile` | Short developer commands wrapping Xcode, SwiftPM, and the engine scripts. |
 | `App/` | SwiftUI app entry point and scene composition. |
 | `Features/` | Library, player, transcript surface, transcription status, and settings. |
-| `Core/` | Domain types, caption timeline, chunk planning/reconciliation, checkpoint model, worker messages, model catalog, digests, benchmark record. |
+| `Core/` | Domain types, caption timeline, chunk planning/reconciliation, checkpoint model, worker messages, model catalog (`SpeechModels.json`), digests, benchmark record. |
 | `Services/` | Media inspection, XPC client, model manager, checkpoint store, transcription coordinator. |
 | `Inference/` | whisper.cpp binding, bounded audio decoding, and the serial inference session shared by the worker and benchmark tool. |
 | `TranscriptionService/` | XPC worker entry point. |
