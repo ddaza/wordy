@@ -67,7 +67,7 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 4. Verify behavior in proportion to risk using the actual commands available in the repository. Do not invent successful build/test results.
 5. Report what changed, what was verified, and any material remaining limitation.
 
-Open `Wordy.xcodeproj`, select the Wordy scheme and My Mac, then use Run or Test. Run `make help` for command-line development tasks. The primary checks are `make test`, `make test-core`, and `make verify-universal`; `make check` combines native Xcode tests with Universal Release verification. Exact commands and architecture limitations are in `README.md`. No benchmark or production release automation is established yet. Keep these instructions current as targets and scripts change.
+Open `Wordy.xcodeproj`, select the Wordy scheme and My Mac, then use Run or Test. Run `make help` for command-line development tasks. The primary checks are `make test`, `make test-core`, and `make verify-universal`; `make check` combines native Xcode tests with Universal Release verification. The inference engine is a pinned `whisper.cpp` release fetched and built by `scripts/fetch-whisper.sh` and `scripts/build-whisper.sh` (CMake required on developer machines only); change the pin only through those scripts and record it in `docs/inference.md`. Benchmarks run through `make bench` / `scripts/bench-matrix.sh`; add results under `docs/benchmarks/` with hardware and conditions. Exact commands and architecture limitations are in `README.md`. No production release automation is established yet. Keep these instructions current as targets and scripts change.
 
 ## Verification expectations
 

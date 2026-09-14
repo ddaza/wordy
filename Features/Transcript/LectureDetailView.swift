@@ -2,11 +2,18 @@ import SwiftUI
 
 struct LectureDetailView: View {
     let lecture: Lecture
-    let playback: PlaybackController
+    let library: LibraryModel
     @State private var query = ""
     @State private var hits: [TranscriptSearchHit] = []
     @State private var followPlayback = true
     @State private var scrollTarget: UUID?
+
+    private var playback: PlaybackController { library.playback }
+    private var job: TranscriptionCoordinator.Job? { library.coordinator.jobs[lecture.id] }
+    private var isPartial: Bool {
+        guard let job else { return false }
+        return job.status != .complete
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,21 +26,27 @@ struct LectureDetailView: View {
                 Spacer()
                 Toggle("Follow playback", isOn: $followPlayback)
                     .toggleStyle(.button)
-                    .disabled(!playback.hasAudio || lecture.timeline.segments.isEmpty)
+                    .disabled(!playback.hasAudio || lecture.segments.isEmpty)
             }
             .padding(24)
+            if !lecture.isSample {
+                TranscriptionStatusView(lecture: lecture, coordinator: library.coordinator, models: library.models)
+            }
             Divider()
-            if lecture.timeline.segments.isEmpty {
+            if lecture.segments.isEmpty {
                 ContentUnavailableView {
-                    Label("Ready to listen", systemImage: "headphones")
+                    Label(job?.status.isActive == true ? "Listening to the first section" : "Ready to listen",
+                          systemImage: "headphones")
                 } description: {
-                    Text("Your audio is ready. Transcription will be available once the local speech engine is connected.")
+                    Text(job?.status.isActive == true
+                        ? "The first passages appear as soon as the first section is transcribed. You can start playback now."
+                        : "Your audio is ready. Transcribed passages will appear here.")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search this transcript", text: $query)
+                    TextField(isPartial ? "Search completed passages" : "Search this transcript", text: $query)
                         .textFieldStyle(.plain)
                     if !query.isEmpty {
                         Text("\(hits.count) passages").font(.caption).foregroundStyle(.secondary)
@@ -43,6 +56,10 @@ struct LectureDetailView: View {
                 }
                 .padding(16)
                 if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if isPartial {
+                        Text("Only passages transcribed so far are searched.")
+                            .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16)
+                    }
                     if hits.isEmpty {
                         Text("No matching passages").foregroundStyle(.secondary).padding()
                     } else {
@@ -67,7 +84,7 @@ struct LectureDetailView: View {
                     }
                 }
                 TranscriptCollectionView(
-                    segments: lecture.timeline.segments,
+                    segments: lecture.segments,
                     activeID: playback.activeSegmentID,
                     highlightedIDs: Set(hits.map(\.id)),
                     scrollTarget: scrollTarget,
@@ -75,13 +92,20 @@ struct LectureDetailView: View {
                     onManualScroll: { followPlayback = false },
                     onSelect: { playback.seek(to: $0.start) },
                 )
+                if let job, isPartial, job.completedThrough < lecture.duration {
+                    Divider()
+                    Label("Remaining \(playbackTime(lecture.duration - job.completedThrough)) pending transcription",
+                          systemImage: "hourglass")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
+                }
             }
             Divider()
-            PlayerView(playback: playback, segments: lecture.timeline.segments)
+            PlayerView(playback: playback, segments: lecture.segments)
         }
-        .task(id: query) {
+        .task(id: SearchKey(query: query, segmentCount: lecture.segments.count)) {
             let currentQuery = query
-            let segments = lecture.timeline.segments
+            let segments = lecture.segments
             do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
             let result = await Task.detached(priority: .userInitiated) {
                 TranscriptSearch.hits(in: segments, query: currentQuery)
@@ -89,5 +113,10 @@ struct LectureDetailView: View {
             guard !Task.isCancelled else { return }
             hits = result
         }
+    }
+
+    private struct SearchKey: Equatable {
+        let query: String
+        let segmentCount: Int
     }
 }

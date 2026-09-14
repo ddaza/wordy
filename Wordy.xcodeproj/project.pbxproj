@@ -6,6 +6,20 @@
 	objectVersion = 71;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		F00000000000000000000001 /* WhisperEngine */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = F00000000000000000000010 /* Build configuration list for PBXAggregateTarget "WhisperEngine" */;
+			buildPhases = (
+				F00000000000000000000003 /* Build pinned whisper.cpp */,
+			);
+			dependencies = (
+			);
+			name = WhisperEngine;
+			productName = WhisperEngine;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		B00000000000000000000007 /* WordyTranscriptionService.xpc in Embed XPC Service */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* WordyTranscriptionService.xpc */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -17,6 +31,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = C00000000000000000000001;
 			remoteInfo = WordyTranscriptionService;
+		};
+		C00000000000000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F00000000000000000000001;
+			remoteInfo = WhisperEngine;
+		};
+		G00000000000000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F00000000000000000000001;
+			remoteInfo = WhisperEngine;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -38,6 +66,7 @@
 		B00000000000000000000002 /* Wordy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wordy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C00000000000000000000002 /* WordyTranscriptionService.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = WordyTranscriptionService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		D00000000000000000000002 /* WordyCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WordyCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		G00000000000000000000002 /* wordy-bench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wordy-bench"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -48,6 +77,9 @@
 		E00000000000000000000005 /* TranscriptionService */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = TranscriptionService; sourceTree = "<group>"; };
 		E00000000000000000000006 /* Tests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Tests; sourceTree = "<group>"; };
 		E00000000000000000000007 /* Config */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Config; sourceTree = "<group>"; };
+		E00000000000000000000008 /* Inference */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Inference; sourceTree = "<group>"; };
+		E00000000000000000000009 /* Benchmarks */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Benchmarks; sourceTree = "<group>"; };
+		E00000000000000000000010 /* scripts */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = scripts; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +104,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		G00000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -85,6 +124,9 @@
 				E00000000000000000000005 /* TranscriptionService */,
 				E00000000000000000000006 /* Tests */,
 				E00000000000000000000007 /* Config */,
+				E00000000000000000000008 /* Inference */,
+				E00000000000000000000009 /* Benchmarks */,
+				E00000000000000000000010 /* scripts */,
 				A00000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -95,6 +137,7 @@
 				B00000000000000000000002 /* Wordy.app */,
 				C00000000000000000000002 /* WordyTranscriptionService.xpc */,
 				D00000000000000000000002 /* WordyCoreTests.xctest */,
+				G00000000000000000000002 /* wordy-bench */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -138,10 +181,12 @@
 			buildRules = (
 			);
 			dependencies = (
+				C00000000000000000000008 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				E00000000000000000000002 /* Core */,
 				E00000000000000000000005 /* TranscriptionService */,
+				E00000000000000000000008 /* Inference */,
 			);
 			name = WordyTranscriptionService;
 			productName = WordyTranscriptionService;
@@ -169,6 +214,28 @@
 			productReference = D00000000000000000000002 /* WordyCoreTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		G00000000000000000000001 /* wordy-bench */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = G00000000000000000000010 /* Build configuration list for PBXNativeTarget "wordy-bench" */;
+			buildPhases = (
+				G00000000000000000000003 /* Sources */,
+				G00000000000000000000004 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				G00000000000000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E00000000000000000000002 /* Core */,
+				E00000000000000000000008 /* Inference */,
+				E00000000000000000000009 /* Benchmarks */,
+			);
+			name = "wordy-bench";
+			productName = "wordy-bench";
+			productReference = G00000000000000000000002 /* wordy-bench */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -195,6 +262,8 @@
 				B00000000000000000000001 /* Wordy */,
 				C00000000000000000000001 /* WordyTranscriptionService */,
 				D00000000000000000000001 /* WordyCoreTests */,
+				F00000000000000000000001 /* WhisperEngine */,
+				G00000000000000000000001 /* wordy-bench */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +292,26 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		F00000000000000000000003 /* Build pinned whisper.cpp */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/scripts/build-whisper.sh",
+				"$(SRCROOT)/scripts/fetch-whisper.sh",
+			);
+			name = "Build pinned whisper.cpp";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"$PATH:/opt/homebrew/bin:/usr/local/bin\"\nWORDY_BUILD_ROOT=\"$SRCROOT/build\" \"$SRCROOT/scripts/build-whisper.sh\" $ARCHS\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		B00000000000000000000003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -245,6 +334,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		G00000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -252,6 +348,16 @@
 			isa = PBXTargetDependency;
 			target = C00000000000000000000001 /* WordyTranscriptionService */;
 			targetProxy = B00000000000000000000009 /* PBXContainerItemProxy */;
+		};
+		C00000000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F00000000000000000000001 /* WhisperEngine */;
+			targetProxy = C00000000000000000000009 /* PBXContainerItemProxy */;
+		};
+		G00000000000000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F00000000000000000000001 /* WhisperEngine */;
+			targetProxy = G00000000000000000000009 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -331,10 +437,27 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/build/whisper/include";
 				INFOPLIST_FILE = "Config/Worker-Info.plist";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/build/whisper/lib";
+				OTHER_LDFLAGS = (
+					"-lwordy_whisper",
+					"-lc++",
+					"-framework",
+					Accelerate,
+					"-framework",
+					Metal,
+					"-framework",
+					MetalKit,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMedia,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.TranscriptionService;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Inference/Wordy-Inference-Bridging-Header.h";
 			};
 			name = Debug;
 		};
@@ -342,10 +465,27 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/build/whisper/include";
 				INFOPLIST_FILE = "Config/Worker-Info.plist";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/build/whisper/lib";
+				OTHER_LDFLAGS = (
+					"-lwordy_whisper",
+					"-lc++",
+					"-framework",
+					Accelerate,
+					"-framework",
+					Metal,
+					"-framework",
+					MetalKit,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMedia,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.TranscriptionService;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Inference/Wordy-Inference-Bridging-Header.h";
 			};
 			name = Release;
 		};
@@ -366,6 +506,74 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.CoreTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F00000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		F00000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		G00000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/build/whisper/include";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/build/whisper/lib";
+				OTHER_LDFLAGS = (
+					"-lwordy_whisper",
+					"-lc++",
+					"-framework",
+					Accelerate,
+					"-framework",
+					Metal,
+					"-framework",
+					MetalKit,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMedia,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.bench;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Inference/Wordy-Inference-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		G00000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/build/whisper/include";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/build/whisper/lib";
+				OTHER_LDFLAGS = (
+					"-lwordy_whisper",
+					"-lc++",
+					"-framework",
+					Accelerate,
+					"-framework",
+					Metal,
+					"-framework",
+					MetalKit,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMedia,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.wordy.app.bench;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Inference/Wordy-Inference-Bridging-Header.h";
 			};
 			name = Release;
 		};
@@ -404,6 +612,24 @@
 			buildConfigurations = (
 				D00000000000000000000011 /* Debug */,
 				D00000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F00000000000000000000010 /* Build configuration list for PBXAggregateTarget "WhisperEngine" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F00000000000000000000011 /* Debug */,
+				F00000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		G00000000000000000000010 /* Build configuration list for PBXNativeTarget "wordy-bench" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				G00000000000000000000011 /* Debug */,
+				G00000000000000000000012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

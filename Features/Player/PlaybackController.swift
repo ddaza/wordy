@@ -63,6 +63,13 @@ final class PlaybackController {
         updateTime(0)
     }
 
+    /// Swaps caption intervals without touching the player item; the active
+    /// caption is re-evaluated from the current media time.
+    func updateTimeline(_ timeline: TranscriptTimeline) {
+        self.timeline = timeline
+        updateTime(time)
+    }
+
     func togglePlayback() {
         guard hasAudio else { return }
         if isPlaying {

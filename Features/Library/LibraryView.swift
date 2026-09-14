@@ -11,7 +11,7 @@ struct LibraryView: View {
                         Label {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(lecture.title).lineLimit(2)
-                                Text(lecture.isSample ? "Sample transcript" : playbackTime(lecture.duration))
+                                Text(lecture.isSample ? "Sample transcript" : subtitle(for: lecture))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         } icon: {
@@ -40,7 +40,7 @@ struct LibraryView: View {
             }
         } detail: {
             if let lecture = library.selectedLecture {
-                LectureDetailView(lecture: lecture, playback: library.playback)
+                LectureDetailView(lecture: lecture, library: library)
                     .id(lecture.id)
             } else {
                 ContentUnavailableView {
@@ -78,5 +78,19 @@ struct LibraryView: View {
         )) {
             Button("OK", role: .cancel) { library.errorMessage = nil }
         } message: { Text(library.errorMessage ?? "") }
+    }
+
+    private func subtitle(for lecture: Lecture) -> String {
+        let duration = playbackTime(lecture.duration)
+        guard let job = library.coordinator.jobs[lecture.id] else { return duration }
+        switch job.status {
+        case .identifying: return "\(duration) · preparing"
+        case .waitingForModel: return "\(duration) · model needed"
+        case .queued: return "\(duration) · waiting"
+        case .running: return "\(duration) · transcribing \(Int(job.fractionComplete * 100))%"
+        case .paused: return "\(duration) · paused"
+        case .complete: return "\(duration) · transcribed"
+        case .failed: return "\(duration) · stopped"
+        }
     }
 }

@@ -1,5 +1,7 @@
 # Scaffold decisions and verification
 
+This document records the initial scaffold as built. The Milestone 1 slice that followed (pinned whisper.cpp engine, XPC inference protocol, model manager, checkpointed jobs, benchmark harness) is documented in `docs/inference.md`; statements below about missing inference or a readiness-only worker describe the scaffold stage, not the current tree.
+
 ## Scope
 
 This scaffold starts development; it does not complete Milestone 1. Inference, model packaging, two-hour transcription, checkpoint recovery, and physical Intel/M1 performance validation remain outstanding.

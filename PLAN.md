@@ -1,6 +1,6 @@
 # Wordy implementation plan
 
-Status: development scaffold implemented; Milestone 1 remains in progress. See `README.md` and `docs/scaffold.md` for runnable features and limitations. Inference, persistence, Google Drive, and cloud integrations are not implemented yet.
+Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs, and the in-app recovery walkthrough, remain open before Milestone 1 can be closed. See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence, Google Drive, and cloud integrations are not implemented yet.
 
 ## 1. Product objective
 
@@ -281,6 +281,12 @@ Build a small evaluation set with consented recordings: clean lecture, noisy roo
 
 Exit: an evidence-backed engine/configuration recommendation and a functioning vertical slice on both architectures. Do not substitute a short demo for the long-file test.
 
+Progress (2026-09-13, see `docs/inference.md` and `docs/benchmarks/2026-09-13-m4max.md`):
+
+- Done: Xcode app, import, player, XPC worker running pinned whisper.cpp v1.9.4; universal Release build of app, worker, and engine verified (arm64 Metal, x86_64 AVX2 baseline, macOS 14.0 minimum, valid nested signature); full 1:39:46 lecture benchmarked for `base`, `small`, `small-q5_1` × 30/60/300 s chunk policies on Apple M4 Max; incremental results, pause/resume, and SHA-256-keyed checkpoints implemented with tests for ordering, invalidation, and boundary reconciliation; model download with pinned SHA-256 verification.
+- Provisional recommendation: 60 s chunks with 3 s overlap; `small` on Apple Silicon, `base` on Intel; evaluate `small-q5_1` after a WER comparison.
+- Open: physical M1 (8 GB) and Intel measurements; in-app worker-kill and quit/relaunch walkthrough with concurrent playback (the app records main-thread delay percentiles for this); WER on a reference excerpt.
+
 ### Milestone 2: complete local listening workflow
 
 - Add database schema/migrations, durable job coordinator, cache, and model manager.
@@ -354,7 +360,8 @@ This is a proposed layout, not a claim that these files or targets already exist
 - Exact supported Intel model/OS matrix and deployment target.
 - Priority languages and representative recordings.
 - File selection versus automatic watched-folder discovery for the first release.
-- Default model/quantization and transcription-speed gates for each hardware tier.
+- Default model/quantization and transcription-speed gates for each hardware tier (M4 Max evidence recorded; M1 and Intel outstanding).
+- Chunk boundary reconciliation: start-based attribution with word-match or time-proportional trimming was chosen after midpoint attribution dropped straddling sentences; revisit if word-level timestamps are validated.
 - Word highlighting quality threshold and whether alignment work is worthwhile.
 - Cloud provider, region, retention, pricing, and account flow.
 - Whether direct distribution alone is sufficient; Mac App Store distribution has a separate packaging/update path.

@@ -44,9 +44,20 @@ struct TranscriptCollectionView: NSViewRepresentable {
         let previous = coordinator.parent
         coordinator.parent = self
         guard let collection = coordinator.collection else { return }
-        if !coordinator.hasLoaded || previous.segments != segments {
+        if !coordinator.hasLoaded {
             coordinator.hasLoaded = true
             collection.reloadData()
+        } else if previous.segments != segments {
+            // Committed chunks append passages; insert only the new rows so the
+            // reader's scroll position and existing item views are preserved.
+            let appended = segments.count > previous.segments.count
+                && zip(previous.segments, segments).allSatisfy { $0.id == $1.id }
+            if appended {
+                let paths = Set((previous.segments.count ..< segments.count).map { IndexPath(item: $0, section: 0) })
+                collection.animator().insertItems(at: paths)
+            } else {
+                collection.reloadData()
+            }
         } else if previous.activeID != activeID || previous.highlightedIDs != highlightedIDs {
             for item in collection.visibleItems() {
                 guard let passage = item as? PassageItem, let index = collection.indexPath(for: item)?.item,

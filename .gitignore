@@ -12,3 +12,4 @@ ggml-*.bin
 PrivateFixtures/
 tags
 assets/
+Vendor/whisper.cpp/

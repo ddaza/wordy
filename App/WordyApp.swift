@@ -8,6 +8,7 @@ struct WordyApp: App {
         WindowGroup {
             LibraryView(library: library)
                 .frame(minWidth: 900, minHeight: 600)
+                .task { library.importLaunchArguments() }
         }
         .defaultSize(width: 1150, height: 760)
         .commands {
@@ -17,7 +18,7 @@ struct WordyApp: App {
             }
         }
         Settings {
-            SettingsView()
+            SettingsView(library: library)
         }
     }
 }

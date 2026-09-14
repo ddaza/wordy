@@ -21,8 +21,12 @@ RELEASE_WORKER := $(RELEASE_APP)/Contents/XPCServices/WordyTranscriptionService.
 
 .DEFAULT_GOAL := help
 
+BENCH := $(DERIVED_DATA)/Build/Products/Release/wordy-bench
+BENCH_OUTPUT ?= $(BUILD_ROOT)/benchmarks
+
 .PHONY: help doctor list xcode build run test test-core test-arm64 test-x86_64 \
-	release build-universal build-arm64 build-x86_64 verify-universal analyze check clean
+	release build-universal build-arm64 build-x86_64 verify-universal analyze check clean \
+	engine engine-clean bench
 
 help: ## Show the available development commands.
 	@awk 'BEGIN { FS = ":.*## "; printf "Wordy development commands:\n\n" } /^[a-zA-Z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -83,7 +87,22 @@ verify-universal: build-universal ## Verify both architectures and the ad-hoc si
 	lipo $(RELEASE_EXECUTABLE) -verify_arch arm64 x86_64
 	lipo $(RELEASE_WORKER) -verify_arch arm64 x86_64
 	codesign --verify --deep --strict --verbose=2 $(RELEASE_APP)
-	@printf 'Verified Universal app and XPC worker: arm64 + x86_64\n'
+	@nm $(RELEASE_WORKER) | grep -q ' T _whisper_full$$' || (echo 'worker does not contain the whisper engine' && exit 1)
+	@printf 'Verified Universal app and XPC worker (with whisper.cpp): arm64 + x86_64\n'
+
+engine: ## Fetch the pinned whisper.cpp release and build the universal static engine library.
+	WORDY_BUILD_ROOT=$(abspath $(BUILD_ROOT)) scripts/build-whisper.sh arm64 x86_64
+
+engine-clean: ## Remove the vendored whisper.cpp checkout and its build products.
+	rm -rf Vendor/whisper.cpp $(BUILD_ROOT)/whisper
+
+bench: ## Build wordy-bench (Release). Run it with: make bench AUDIO=... MODEL=... MODEL_ID=... [CHUNK=60 OVERLAP=3]
+	$(XCODEBUILD) -project $(PROJECT) -scheme wordy-bench $(XCODE_FLAGS) -configuration Release \
+		-destination '$(NATIVE_DESTINATION)' -derivedDataPath $(DERIVED_DATA) build
+	@if [ -n "$(AUDIO)" ]; then \
+		$(BENCH) --audio "$(AUDIO)" --model "$(MODEL)" --model-id "$(MODEL_ID)" \
+			--chunk $(or $(CHUNK),60) --overlap $(or $(OVERLAP),3) --output $(BENCH_OUTPUT) $(BENCH_FLAGS); \
+	else printf 'Built %s\n' $(BENCH); fi
 
 analyze: ## Run Xcode's static analyzer on the Debug configuration.
 	$(XCODEBUILD) $(XCODE_COMMON) -configuration Debug \

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum TranscriptionMode: String, Sendable { case local, cloud }
+public enum TranscriptionMode: String, Sendable, Codable { case local, cloud }
 
 public struct TranscriptionRequest: Sendable {
     public enum RequestError: Error { case cloudConsentRequired, localFileRequired }
@@ -28,13 +28,4 @@ public struct TranscriptionBatch: Sendable {
 public protocol TranscriptionProvider: Sendable {
     func transcribe(_ request: TranscriptionRequest) -> AsyncThrowingStream<TranscriptionBatch, Error>
     func cancel(requestID: UUID) async
-}
-
-/// Bootstrap contract only. Add bounded, versioned inference messages with the engine adapter.
-@objc public protocol TranscriptionWorkerProtocol {
-    func checkReadiness(reply: @escaping @Sendable (Bool, String) -> Void)
-}
-
-public enum WorkerIdentity {
-    public static let serviceName = "com.wordy.app.TranscriptionService"
 }
