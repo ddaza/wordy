@@ -7,6 +7,7 @@ struct LectureDetailView: View {
     @State private var hits: [TranscriptSearchHit] = []
     @State private var followPlayback = true
     @State private var scrollTarget: UUID?
+    @AppStorage("wordy.bookmarksCollapsed") private var bookmarksCollapsed = false
 
     private var playback: PlaybackController {
         library.playback
@@ -39,17 +40,57 @@ struct LectureDetailView: View {
                 TranscriptionStatusView(lecture: lecture, coordinator: library.coordinator, models: library.models)
             }
             Divider()
-            if lecture.segments.isEmpty {
-                ContentUnavailableView {
-                    Label(job?.status.isActive == true ? "Listening to the first section" : "Ready to listen",
-                          systemImage: "headphones")
-                } description: {
-                    Text(job?.status.isActive == true
-                        ? "The first passages appear as soon as the first section is transcribed. You can start playback now."
-                        : "Your audio is ready. Transcribed passages will appear here.")
+            HStack(spacing: 0) {
+                transcriptBody
+                if !library.bookmarks.items.isEmpty {
+                    Divider()
+                    BookmarkInspector(library: library, collapsed: $bookmarksCollapsed)
+                        .background(.bar)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Divider()
+            PlayerView(playback: playback, segments: lecture.segments)
+        }
+        .task(id: SearchKey(query: query, segmentCount: lecture.segments.count)) {
+            let currentQuery = query
+            let segments = lecture.segments
+            do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
+            let result = await Task.detached(priority: .userInitiated) {
+                TranscriptSearch.hits(in: segments, query: currentQuery)
+            }.value
+            guard !Task.isCancelled else { return }
+            hits = result
+        }
+        .onChange(of: library.pendingRevealTime) { _, time in
+            guard let time else { return }
+            followPlayback = false
+            if let segment = lecture.segments.last(where: { $0.start <= time }) {
+                scrollTarget = segment.id
+            }
+            library.pendingRevealTime = nil
+        }
+        .onChange(of: library.bookmarks.items.count) { previous, count in
+            if previous == 0, count > 0 {
+                bookmarksCollapsed = false
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var transcriptBody: some View {
+        if lecture.segments.isEmpty {
+            ContentUnavailableView {
+                Label(job?.status.isActive == true ? "Listening to the first section" : "Ready to listen",
+                      systemImage: "headphones")
+            } description: {
+                Text(job?.status.isActive == true
+                    ? "The first passages appear as soon as the first section is transcribed. You can start playback now."
+                    : "Your audio is ready. Transcribed passages will appear here.")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            VStack(spacing: 0) {
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(isPartial ? "Search completed passages" : "Search this transcript", text: $query)
@@ -93,10 +134,18 @@ struct LectureDetailView: View {
                     segments: lecture.segments,
                     activeID: playback.activeSegmentID,
                     highlightedIDs: Set(hits.map(\.id)),
+                    bookmarkedIDs: bookmarkedIDs,
                     scrollTarget: scrollTarget,
                     followPlayback: followPlayback,
                     onManualScroll: { followPlayback = false },
                     onSelect: { playback.seek(to: $0.start) },
+                    onToggleBookmark: lecture.sha256.map { digest in
+                        { segment in
+                            library.bookmarks.toggle(
+                                sha256: digest, duration: lecture.duration, time: segment.start, label: segment.text,
+                            )
+                        }
+                    },
                 )
                 if let job, isPartial, job.completedThrough < lecture.duration {
                     Divider()
@@ -106,19 +155,11 @@ struct LectureDetailView: View {
                         .padding(.vertical, 8)
                 }
             }
-            Divider()
-            PlayerView(playback: playback, segments: lecture.segments)
         }
-        .task(id: SearchKey(query: query, segmentCount: lecture.segments.count)) {
-            let currentQuery = query
-            let segments = lecture.segments
-            do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
-            let result = await Task.detached(priority: .userInitiated) {
-                TranscriptSearch.hits(in: segments, query: currentQuery)
-            }.value
-            guard !Task.isCancelled else { return }
-            hits = result
-        }
+    }
+
+    private var bookmarkedIDs: Set<UUID> {
+        Set(lecture.segments.filter { library.bookmarks.isBookmarked(time: $0.start) }.map(\.id))
     }
 
     private struct SearchKey: Equatable {

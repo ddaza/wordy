@@ -11,6 +11,7 @@ enum AppDirectories {
 
     static let models = root.appendingPathComponent("Models", isDirectory: true)
     static let transcripts = root.appendingPathComponent("Transcripts", isDirectory: true)
+    static let bookmarks = root.appendingPathComponent("Bookmarks", isDirectory: true)
     static let benchmarks = root.appendingPathComponent("Benchmarks", isDirectory: true)
 
     static func ensureExists(_ url: URL) throws {

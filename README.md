@@ -19,13 +19,13 @@ A native macOS lecture player and transcription app, targeting macOS 14+ on Inte
 - One-click model download from a pinned manifest with resume, SHA-256 verification, and atomic activation.
 - Incremental results: passages appear per completed section while later sections stay visibly pending; playback and search work on the partial transcript.
 - Checkpointed jobs keyed by the recording's SHA-256: pause, resume, quit, worker crash, and re-import all continue from the last committed section.
-- Reusable AppKit transcript view with incremental row insertion, phrase search across passage boundaries, search-to-seek, and follow-playback.
+- Reusable AppKit transcript view with incremental row insertion, phrase search across passage boundaries, search-to-seek, follow-playback, and per-recording bookmarks (pin beside a passage timestamp; collapsible inspector on the right when the open recording has pins).
 - `wordy-bench` command-line harness and `scripts/bench-matrix.sh` for repeatable engine/model/chunk-policy measurements.
 - Universal Release builds (`arm64` + `x86_64`) of the app, worker, and engine with macOS 14.0 minimum.
 
 ## Current limitations
 
-Google Drive import, GRDB/FTS5 persistence, bookmarks, exports, word-level timing, and automatic updates are not implemented yet. The library is session-only and references original audio files without copying them; transcripts persist as per-recording checkpoint documents and are restored when the same file bytes are imported again. Playback position is not restored after quitting.
+Google Drive import, GRDB/FTS5 persistence, exports, word-level timing, and automatic updates are not implemented yet. The library is session-only and references original audio files without copying them; transcripts persist as per-recording checkpoint documents and are restored when the same file bytes are imported again. Playback position is not restored after quitting.
 
 Search runs over the in-memory transcript of the open lecture on a background task; it is not the planned library-wide FTS5 index.
 
@@ -65,15 +65,15 @@ The Universal Release app is produced at `build/DerivedData/Build/Products/Relea
 | `Makefile` | Short developer commands wrapping Xcode, SwiftPM, and the engine scripts. |
 | `App/` | SwiftUI app entry point and scene composition. |
 | `Features/` | Library, player, transcript surface, transcription status, and settings. |
-| `Core/` | Domain types, caption timeline, chunk planning/reconciliation, checkpoint model, worker messages, model catalog (`SpeechModels.json`), digests, benchmark record. |
-| `Services/` | Media inspection, XPC client, model manager, checkpoint store, transcription coordinator. |
+| `Core/` | Domain types, caption timeline, chunk planning/reconciliation, checkpoint model, bookmarks, worker messages, model catalog (`SpeechModels.json`), digests, benchmark record. |
+| `Services/` | Media inspection, XPC client, model manager, checkpoint store, bookmark store, transcription coordinator. |
 | `Inference/` | whisper.cpp binding, bounded audio decoding, and the serial inference session shared by the worker and benchmark tool. |
 | `TranscriptionService/` | XPC worker entry point. |
 | `Benchmarks/` | `wordy-bench` command-line harness. |
 | `scripts/` | Pinned engine fetch/build and benchmark matrix scripts. |
 | `Vendor/` | Git-ignored pinned `whisper.cpp` checkout produced by `scripts/fetch-whisper.sh`. |
 | `Config/` | App and worker property lists. |
-| `Tests/` | Timing, search, chunking, reconciliation, checkpoint, digest, and message tests. |
+| `Tests/` | Timing, search, chunking, reconciliation, checkpoint, bookmarks, digest, and message tests. |
 | `LICENSE`, `THIRD_PARTY_NOTICES.md` | MIT license for Wordy and notices for bundled dependencies (`whisper.cpp`/ggml, speech models). |
 | `docs/` | Scaffold record, inference/engine documentation, benchmark records, development assets. |
 | `assets/` | Git-ignored local recordings and model files for deliberate manual and performance checks. |
@@ -82,6 +82,6 @@ Xcode synchronized folders include new source files automatically within their t
 
 ## Next implementation slice
 
-Milestone 2: GRDB schema and migrations replacing the JSON checkpoint, durable job coordinator and cache, FTS5 search, per-recording bookmarks, exports, playback-state restore, and the remaining recovery tests. Confirm the engine recommendation on physical M1 and Intel hardware first.
+Milestone 2: GRDB schema and migrations replacing the JSON checkpoint and bookmark documents, durable job coordinator and cache, FTS5 search, exports, playback-state restore, and the remaining recovery tests. Confirm the engine recommendation on physical M1 and Intel hardware first.
 
 See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, [docs/inference.md](docs/inference.md) for the engine, worker protocol, checkpoint design, and benchmark procedure, [docs/scaffold.md](docs/scaffold.md) for the original scaffold record, and [docs/development-assets.md](docs/development-assets.md) for local fixtures.

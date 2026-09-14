@@ -281,6 +281,8 @@ Progress (2026-09-13, see `docs/inference.md` and `docs/benchmarks/2026-09-13-m4
 
 Exit: a user can import a two-hour local recording, transcribe, listen/read, search-to-seek, add and revisit recording-specific bookmarks, export a text transcript, close, and resume without technical intervention.
 
+Progress: per-recording bookmarks are implemented as SHA-256-keyed JSON (same partition rules as checkpoints). Pin a passage beside its timestamp; a right-hand inspector lists only the open recording's pins when any exist, collapses to a rail, and seeks through the playback controller. GRDB still replaces this store.
+
 ### Milestone 3: Google Drive
 
 - Implement OAuth, token storage/refresh, Picker integration, and selected-file imports.

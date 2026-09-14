@@ -6,21 +6,19 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $library.selection) {
-                Section("Session library") {
-                    ForEach(library.lectures) { lecture in
-                        Label {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(lecture.title).lineLimit(2)
-                                Text(lecture.isSample ? "Sample transcript" : subtitle(for: lecture))
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: lecture.isSample ? "text.quote" : "waveform")
-                                .foregroundStyle(.tint)
+                ForEach(library.lectures) { lecture in
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(lecture.title).lineLimit(2)
+                            Text(lecture.isSample ? "Sample transcript" : subtitle(for: lecture))
+                                .font(.caption).foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 5)
-                        .tag(lecture.id)
+                    } icon: {
+                        Image(systemName: lecture.isSample ? "text.quote" : "waveform")
+                            .foregroundStyle(.tint)
                     }
+                    .padding(.vertical, 5)
+                    .tag(lecture.id)
                 }
             }
             .navigationTitle("Wordy")

@@ -6,10 +6,12 @@ struct TranscriptCollectionView: NSViewRepresentable {
     let segments: [TranscriptSegment]
     let activeID: UUID?
     let highlightedIDs: Set<UUID>
+    let bookmarkedIDs: Set<UUID>
     let scrollTarget: UUID?
     let followPlayback: Bool
     let onManualScroll: () -> Void
     let onSelect: (TranscriptSegment) -> Void
+    let onToggleBookmark: ((TranscriptSegment) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -58,7 +60,9 @@ struct TranscriptCollectionView: NSViewRepresentable {
             } else {
                 collection.reloadData()
             }
-        } else if previous.activeID != activeID || previous.highlightedIDs != highlightedIDs {
+        } else if previous.activeID != activeID || previous.highlightedIDs != highlightedIDs
+            || previous.bookmarkedIDs != bookmarkedIDs
+        {
             for item in collection.visibleItems() {
                 guard let passage = item as? PassageItem, let index = collection.indexPath(for: item)?.item,
                       segments.indices.contains(index) else { continue }
@@ -101,7 +105,11 @@ struct TranscriptCollectionView: NSViewRepresentable {
         fileprivate func configure(_ item: PassageItem, at index: Int) {
             let segment = parent.segments[index]
             item.configure(segment: segment, active: segment.id == parent.activeID,
-                           matched: parent.highlightedIDs.contains(segment.id))
+                           matched: parent.highlightedIDs.contains(segment.id),
+                           bookmarked: parent.bookmarkedIDs.contains(segment.id),
+                           onPin: parent.onToggleBookmark.map { toggle in
+                               { toggle(segment) }
+                           })
         }
 
         func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
@@ -134,7 +142,9 @@ struct TranscriptCollectionView: NSViewRepresentable {
 @MainActor private final class PassageItem: NSCollectionViewItem {
     static let identifier = NSUserInterfaceItemIdentifier("Passage")
     private let timestamp = NSTextField(labelWithString: "")
+    private let pin = NSButton()
     private let passage = NSTextField(wrappingLabelWithString: "")
+    private var onPin: (() -> Void)?
 
     override func loadView() {
         view = NSView()
@@ -142,10 +152,26 @@ struct TranscriptCollectionView: NSViewRepresentable {
         view.layer?.cornerRadius = 10
         timestamp.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         timestamp.textColor = .secondaryLabelColor
+        pin.bezelStyle = .inline
+        pin.isBordered = false
+        pin.imagePosition = .imageOnly
+        pin.imageScaling = .scaleProportionallyDown
+        pin.target = self
+        pin.action = #selector(pinClicked)
+        pin.setButtonType(.momentaryPushIn)
+        pin.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            pin.widthAnchor.constraint(equalToConstant: 18),
+            pin.heightAnchor.constraint(equalToConstant: 18),
+        ])
         passage.font = .systemFont(ofSize: 16)
         passage.isSelectable = true
         passage.maximumNumberOfLines = 0
-        let stack = NSStackView(views: [timestamp, passage])
+        let header = NSStackView(views: [timestamp, pin])
+        header.orientation = .horizontal
+        header.alignment = .centerY
+        header.spacing = 6
+        let stack = NSStackView(views: [header, passage])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 8
@@ -159,11 +185,21 @@ struct TranscriptCollectionView: NSViewRepresentable {
         ])
     }
 
-    func configure(segment: TranscriptSegment, active: Bool, matched: Bool) {
+    func configure(segment: TranscriptSegment, active: Bool, matched: Bool, bookmarked: Bool, onPin: (() -> Void)?) {
         timestamp.stringValue = playbackTime(segment.start)
         passage.stringValue = segment.text
+        self.onPin = onPin
+        pin.isHidden = onPin == nil
+        pin.image = NSImage(systemSymbolName: bookmarked ? "pin.fill" : "pin",
+                            accessibilityDescription: bookmarked ? "Remove bookmark" : "Bookmark this passage")
+        pin.contentTintColor = bookmarked ? .controlAccentColor : .tertiaryLabelColor
+        pin.toolTip = bookmarked ? "Remove pin" : "Pin this passage"
         view.layer?.backgroundColor = (active ? NSColor.controlAccentColor.withAlphaComponent(0.14)
             : matched ? NSColor.systemYellow.withAlphaComponent(0.12) : NSColor.clear).cgColor
         view.setAccessibilityLabel("\(timestamp.stringValue). \(segment.text)")
+    }
+
+    @objc private func pinClicked() {
+        onPin?()
     }
 }

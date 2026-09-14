@@ -35,6 +35,8 @@ final class LibraryModel {
     let models = ModelManager()
     let worker = WorkerClient()
     let coordinator: TranscriptionCoordinator
+    let bookmarks = BookmarkController()
+    var pendingRevealTime: TimeInterval?
     @ObservationIgnored private let importer = AudioImporter()
 
     var selectedLecture: Lecture? {
@@ -143,14 +145,25 @@ final class LibraryModel {
         lectures[index].sha256 = sha256
         if selection == lectureID {
             playback.updateTimeline(lectures[index].timeline)
+            bookmarks.display(sha256: sha256, duration: lectures[index].duration)
         }
     }
 
     private func loadSelection() {
         guard let lecture = selectedLecture else {
             playback.load(url: nil, duration: 0, timeline: try! TranscriptTimeline(segments: []))
+            bookmarks.display(sha256: nil, duration: 0)
+            pendingRevealTime = nil
             return
         }
         playback.load(url: lecture.url, duration: lecture.duration, timeline: lecture.timeline)
+        bookmarks.display(sha256: lecture.sha256, duration: lecture.duration)
+        pendingRevealTime = nil
+    }
+
+    func openBookmark(_ bookmark: Bookmark) {
+        guard selectedLecture?.sha256 == bookmark.audioSHA256, playback.hasAudio else { return }
+        pendingRevealTime = bookmark.time
+        playback.seek(to: bookmark.time)
     }
 }
