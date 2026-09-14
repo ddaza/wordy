@@ -25,8 +25,12 @@ public struct Bookmark: Identifiable, Codable, Equatable, Sendable {
     public static func normalizedLabel(_ label: String?) -> String? {
         guard let label else { return nil }
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return nil }
-        if trimmed.count <= 80 { return trimmed }
+        if trimmed.isEmpty {
+            return nil
+        }
+        if trimmed.count <= 80 {
+            return trimmed
+        }
         var prefix = String(trimmed.prefix(80))
         while prefix.last?.isWhitespace == true {
             prefix.removeLast()
@@ -130,7 +134,9 @@ public struct BookmarkSet: Codable, Equatable, Sendable {
 
     private mutating func sortInPlace() {
         bookmarks.sort {
-            if $0.time != $1.time { return $0.time < $1.time }
+            if $0.time != $1.time {
+                return $0.time < $1.time
+            }
             return $0.createdAt < $1.createdAt
         }
     }

@@ -34,7 +34,7 @@ final class BookmarkController {
         self.duration = duration
         guard let sha256, BookmarkSet.isDigest(sha256) else { return }
         Task {
-            let loaded = (try? await store.load(sha256: sha256))?.bookmarks ?? []
+            let loaded = await (try? store.load(sha256: sha256))?.bookmarks ?? []
             guard generation == self.generation, self.digest == sha256 else { return }
             items = loaded.filter { (try? BookmarkSet.validate(time: $0.time, duration: duration)) != nil }
         }
