@@ -45,7 +45,9 @@ final class InferenceSession: @unchecked Sendable {
         lock.withLock { activeJobs[jobKey] = flag }
         defer {
             lock.withLock {
-                if activeJobs[jobKey] === flag { activeJobs[jobKey] = nil }
+                if activeJobs[jobKey] === flag {
+                    activeJobs[jobKey] = nil
+                }
             }
         }
 
@@ -53,7 +55,7 @@ final class InferenceSession: @unchecked Sendable {
         return try await withCheckedThrowingContinuation { continuation in
             queue.async { [self] in
                 do {
-                    continuation.resume(returning: try run(request, source: source, cancellation: flag))
+                    try continuation.resume(returning: run(request, source: source, cancellation: flag))
                 } catch {
                     continuation.resume(throwing: error)
                 }
@@ -68,7 +70,9 @@ final class InferenceSession: @unchecked Sendable {
     {
         idleUnload?.cancel()
         defer { scheduleIdleUnload() }
-        if cancellation.isCancelled { throw WhisperEngineError.cancelled }
+        if cancellation.isCancelled {
+            throw WhisperEngineError.cancelled
+        }
 
         var loadMilliseconds = 0.0
         if engine?.modelPath != request.modelPath || engine?.useGPU != (request.useGPU && WhisperEngine.gpuCompiledIn) {

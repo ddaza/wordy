@@ -18,7 +18,9 @@ final class TranscriptionCoordinator {
         case failed(String)
 
         var isActive: Bool {
-            if case .running = self { return true }
+            if case .running = self {
+                return true
+            }
             return false
         }
     }
@@ -35,7 +37,9 @@ final class TranscriptionCoordinator {
         var lastRealTimeFactor: Double?
         var modelID: String?
 
-        var fractionComplete: Double { duration > 0 ? min(1, completedThrough / duration) : 0 }
+        var fractionComplete: Double {
+            duration > 0 ? min(1, completedThrough / duration) : 0
+        }
     }
 
     private(set) var jobs: [UUID: Job] {
@@ -45,6 +49,7 @@ final class TranscriptionCoordinator {
             }
         }
     }
+
     var onSegmentsChanged: ((UUID, [TranscriptSegment], String?) -> Void)?
 
     let worker: WorkerClient
@@ -79,7 +84,9 @@ final class TranscriptionCoordinator {
     func pause(lectureID: UUID) {
         if activeLectureID == lectureID {
             activeTask?.cancel()
-            if let activeJobID { worker.cancel(jobID: activeJobID) }
+            if let activeJobID {
+                worker.cancel(jobID: activeJobID)
+            }
         } else if let index = queue.firstIndex(of: lectureID) {
             queue.remove(at: index)
             jobs[lectureID]?.status = .paused
@@ -268,7 +275,9 @@ final class TranscriptionCoordinator {
     }
 
     private func describeEngine() async throws -> EngineDescription {
-        if let engineDescription { return engineDescription }
+        if let engineDescription {
+            return engineDescription
+        }
         let description = try await worker.describeEngine()
         engineDescription = description
         return description

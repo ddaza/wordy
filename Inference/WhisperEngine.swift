@@ -44,8 +44,14 @@ struct EngineSegment {
 /// call must come from the owner's dedicated inference queue.
 final class WhisperEngine {
     static let engineName = "whisper.cpp"
-    static var engineVersion: String { String(cString: whisper_version()) }
-    static var systemInfo: String { String(cString: whisper_print_system_info()) }
+    static var engineVersion: String {
+        String(cString: whisper_version())
+    }
+
+    static var systemInfo: String {
+        String(cString: whisper_print_system_info())
+    }
+
     static var gpuCompiledIn: Bool {
         #if arch(arm64)
             true
@@ -85,7 +91,9 @@ final class WhisperEngine {
         whisper_free(context)
     }
 
-    var isMultilingual: Bool { whisper_is_multilingual(context) != 0 }
+    var isMultilingual: Bool {
+        whisper_is_multilingual(context) != 0
+    }
 
     /// Runs the full pipeline on `samples` (16 kHz mono). Times are relative to
     /// the first sample; callers add the chunk's absolute start.
@@ -118,7 +126,9 @@ final class WhisperEngine {
                 whisper_full(context, params, buffer.baseAddress, Int32(buffer.count))
             }
         }
-        if cancellation.isCancelled { throw WhisperEngineError.cancelled }
+        if cancellation.isCancelled {
+            throw WhisperEngineError.cancelled
+        }
         guard status == 0 else { throw WhisperEngineError.inferenceFailed(status) }
 
         let count = whisper_full_n_segments(context)

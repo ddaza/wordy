@@ -44,9 +44,17 @@ public struct AudioChunk: Codable, Hashable, Sendable, Identifiable {
         self.audioEnd = audioEnd
     }
 
-    public var id: Int { index }
-    public var ownedDuration: TimeInterval { ownedEnd - ownedStart }
-    public var audioDuration: TimeInterval { audioEnd - audioStart }
+    public var id: Int {
+        index
+    }
+
+    public var ownedDuration: TimeInterval {
+        ownedEnd - ownedStart
+    }
+
+    public var audioDuration: TimeInterval {
+        audioEnd - audioStart
+    }
 }
 
 public enum ChunkPlanner {

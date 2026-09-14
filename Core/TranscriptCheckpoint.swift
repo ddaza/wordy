@@ -56,8 +56,13 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         updatedAt = now
     }
 
-    public var isComplete: Bool { committedChunkCount >= chunkCount }
-    public var nextChunkIndex: Int? { isComplete ? nil : committedChunkCount }
+    public var isComplete: Bool {
+        committedChunkCount >= chunkCount
+    }
+
+    public var nextChunkIndex: Int? {
+        isComplete ? nil : committedChunkCount
+    }
 
     /// Source time through which results are final.
     public func completedThrough(plan: [AudioChunk]) -> TimeInterval {

@@ -44,7 +44,9 @@ final class ModelManager {
     /// The model transcription jobs should use: the recommendation if installed,
     /// otherwise any installed catalog model.
     var readyModel: SpeechModel? {
-        if installedURL(for: recommended) != nil { return recommended }
+        if installedURL(for: recommended) != nil {
+            return recommended
+        }
         return catalog.first { installedURL(for: $0) != nil }
     }
 

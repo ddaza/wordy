@@ -17,7 +17,7 @@ final class TranscriptionWorker: NSObject, TranscriptionWorkerProtocol {
 
     func describeEngine(reply: @escaping @Sendable (Data?, String?) -> Void) {
         do {
-            reply(try MessageCoding.encode(session.describe()), nil)
+            try reply(MessageCoding.encode(session.describe()), nil)
         } catch {
             reply(nil, "The engine description could not be encoded.")
         }
@@ -31,11 +31,11 @@ final class TranscriptionWorker: NSObject, TranscriptionWorkerProtocol {
             reply(nil, "The transcription request was not understood by the local engine.")
             return
         }
-        let session = self.session
+        let session = session
         Task {
             do {
                 let result = try await session.transcribe(decoded)
-                reply(try MessageCoding.encode(result), nil)
+                try reply(MessageCoding.encode(result), nil)
             } catch is CancellationError {
                 reply(nil, WhisperEngineError.cancelled.localizedDescription)
             } catch {
@@ -49,7 +49,7 @@ final class TranscriptionWorker: NSObject, TranscriptionWorkerProtocol {
     }
 
     func unloadModel(reply: @escaping @Sendable () -> Void) {
-        let session = self.session
+        let session = session
         Task {
             await session.unloadModel()
             reply()

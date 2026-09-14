@@ -13,7 +13,10 @@ public struct SpeechModel: Codable, Hashable, Sendable, Identifiable {
     public let sha256: String
     public let summary: String
 
-    public var isPinned: Bool { !sha256.isEmpty }
+    public var isPinned: Bool {
+        !sha256.isEmpty
+    }
+
     public var sizeDescription: String {
         ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
     }

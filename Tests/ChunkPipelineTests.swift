@@ -182,7 +182,9 @@ import Testing
     // Force many small reads to exercise the incremental path.
     var large = Data(count: 3 * 1024 * 1024 + 17)
     large.withUnsafeMutableBytes { bytes in
-        for index in bytes.indices { bytes[index] = UInt8(index % 251) }
+        for index in bytes.indices {
+            bytes[index] = UInt8(index % 251)
+        }
     }
     try large.write(to: url)
     #expect(try AudioContentDigest.sha256(of: url, bufferSize: 4096) == AudioContentDigest.sha256(of: url))
@@ -210,7 +212,7 @@ import Testing
     #expect(throws: TranscriptionProtocol.MessageError.self) {
         try ChunkTranscriptionRequest(jobID: UUID(), chunk: huge, audioURL: audio, modelURL: model, modelID: "x")
     }
-    var json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    var json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     json["protocolVersion"] = 99
     let future = try MessageCoding.decode(ChunkTranscriptionRequest.self, from: JSONSerialization.data(withJSONObject: json))
     #expect(throws: TranscriptionProtocol.MessageError.self) { try future.validate() }

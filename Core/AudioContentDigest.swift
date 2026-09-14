@@ -14,7 +14,9 @@ public enum AudioContentDigest {
         defer { try? handle.close() }
         var hasher = SHA256()
         while true {
-            if isCancelled() { throw CancellationError() }
+            if isCancelled() {
+                throw CancellationError()
+            }
             guard let data = try handle.read(upToCount: bufferSize), !data.isEmpty else { break }
             hasher.update(data: data)
         }

@@ -29,16 +29,16 @@ struct Options {
         }
         while let argument = iterator.next() {
             switch argument {
-            case "--audio": options.audio = URL(fileURLWithPath: try value(argument))
-            case "--model": options.model = URL(fileURLWithPath: try value(argument))
+            case "--audio": options.audio = try URL(fileURLWithPath: value(argument))
+            case "--model": options.model = try URL(fileURLWithPath: value(argument))
             case "--model-id": options.modelID = try value(argument)
-            case "--chunk": options.chunkSeconds = Double(try value(argument)) ?? options.chunkSeconds
-            case "--overlap": options.overlapSeconds = Double(try value(argument)) ?? options.overlapSeconds
+            case "--chunk": options.chunkSeconds = try Double(value(argument)) ?? options.chunkSeconds
+            case "--overlap": options.overlapSeconds = try Double(value(argument)) ?? options.overlapSeconds
             case "--language": options.language = try value(argument)
-            case "--threads": options.threads = Int(try value(argument)) ?? 0
+            case "--threads": options.threads = try Int(value(argument)) ?? 0
             case "--no-gpu": options.useGPU = false
-            case "--limit": options.limitSeconds = Double(try value(argument))
-            case "--output": options.output = URL(fileURLWithPath: try value(argument))
+            case "--limit": options.limitSeconds = try Double(value(argument))
+            case "--output": options.output = try URL(fileURLWithPath: value(argument))
             default: throw UsageError("Unknown argument \(argument)")
             }
         }
@@ -51,8 +51,13 @@ struct Options {
 
 struct UsageError: LocalizedError {
     let message: String
-    init(_ message: String) { self.message = message }
-    var errorDescription: String? { message }
+    init(_ message: String) {
+        self.message = message
+    }
+
+    var errorDescription: String? {
+        message
+    }
 }
 
 func log(_ message: String) {

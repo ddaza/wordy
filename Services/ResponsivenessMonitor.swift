@@ -9,7 +9,9 @@ final class ResponsivenessMonitor {
     private var expected: ContinuousClock.Instant?
     private var samples: [Double] = []
 
-    var isRunning: Bool { timer != nil }
+    var isRunning: Bool {
+        timer != nil
+    }
 
     func start() {
         stop()

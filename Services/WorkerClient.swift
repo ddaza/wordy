@@ -35,7 +35,7 @@ final class WorkerClient {
         if connection == nil {
             let connection = NSXPCConnection(serviceName: WorkerIdentity.serviceName)
             connection.remoteObjectInterface = NSXPCInterface(with: TranscriptionWorkerProtocol.self)
-            let logger = self.logger
+            let logger = logger
             connection.interruptionHandler = { @Sendable in
                 logger.warning("Transcription worker interrupted")
             }
@@ -74,7 +74,11 @@ final class WorkerClient {
                 box.fail(.timedOut)
             }
             proxy.describeEngine { data, message in
-                if let data { box.succeed(data) } else { box.fail(.failure(message ?? WorkerError.unavailable.localizedDescription)) }
+                if let data {
+                    box.succeed(data)
+                } else {
+                    box.fail(.failure(message ?? WorkerError.unavailable.localizedDescription))
+                }
             }
         }
         return try decode(EngineDescription.self, from: data)
@@ -89,7 +93,11 @@ final class WorkerClient {
                 return
             }
             proxy.transcribeChunk(payload) { data, message in
-                if let data { box.succeed(data) } else { box.fail(.failure(message ?? WorkerError.unavailable.localizedDescription)) }
+                if let data {
+                    box.succeed(data)
+                } else {
+                    box.fail(.failure(message ?? WorkerError.unavailable.localizedDescription))
+                }
             }
         }
         let result = try decode(ChunkTranscriptionResult.self, from: data)

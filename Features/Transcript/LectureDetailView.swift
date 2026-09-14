@@ -8,8 +8,14 @@ struct LectureDetailView: View {
     @State private var followPlayback = true
     @State private var scrollTarget: UUID?
 
-    private var playback: PlaybackController { library.playback }
-    private var job: TranscriptionCoordinator.Job? { library.coordinator.jobs[lecture.id] }
+    private var playback: PlaybackController {
+        library.playback
+    }
+
+    private var job: TranscriptionCoordinator.Job? {
+        library.coordinator.jobs[lecture.id]
+    }
+
     private var isPartial: Bool {
         guard let job else { return false }
         return job.status != .complete

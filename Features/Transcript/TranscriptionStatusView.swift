@@ -7,7 +7,9 @@ struct TranscriptionStatusView: View {
     let coordinator: TranscriptionCoordinator
     let models: ModelManager
 
-    private var job: TranscriptionCoordinator.Job? { coordinator.jobs[lecture.id] }
+    private var job: TranscriptionCoordinator.Job? {
+        coordinator.jobs[lecture.id]
+    }
 
     var body: some View {
         if let job {

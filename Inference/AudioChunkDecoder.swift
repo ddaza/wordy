@@ -9,7 +9,9 @@ struct DecodedAudio: Sendable {
     let samples: [Float]
     let startTime: TimeInterval
 
-    var duration: TimeInterval { Double(samples.count) / Self.sampleRate }
+    var duration: TimeInterval {
+        Double(samples.count) / Self.sampleRate
+    }
 }
 
 enum AudioDecodingError: LocalizedError {
@@ -91,7 +93,9 @@ enum AudioChunkDecoder {
         var firstTimestamp: TimeInterval?
 
         while let buffer = output.copyNextSampleBuffer() {
-            if isCancelled() { throw CancellationError() }
+            if isCancelled() {
+                throw CancellationError()
+            }
             if firstTimestamp == nil {
                 let presentation = CMSampleBufferGetOutputPresentationTimeStamp(buffer)
                 firstTimestamp = presentation.isNumeric ? presentation.seconds : start

@@ -76,11 +76,15 @@ final class LibraryModel {
         while let argument = iterator.next() {
             switch argument {
             case "--open":
-                if let path = iterator.next() { urls.append(URL(fileURLWithPath: path)) }
+                if let path = iterator.next() {
+                    urls.append(URL(fileURLWithPath: path))
+                }
             case "--play":
                 autoplay = true
             case "--install-model":
-                if let id = iterator.next(), let model = SpeechModelCatalog.model(id: id) { models.install(model) }
+                if let id = iterator.next(), let model = SpeechModelCatalog.model(id: id) {
+                    models.install(model)
+                }
             default:
                 continue
             }
@@ -88,7 +92,9 @@ final class LibraryModel {
         guard !urls.isEmpty else { return }
         Task {
             await importAudio(urls)
-            if autoplay, playback.hasAudio, !playback.isPlaying { playback.togglePlayback() }
+            if autoplay, playback.hasAudio, !playback.isPlaying {
+                playback.togglePlayback()
+            }
         }
     }
 
