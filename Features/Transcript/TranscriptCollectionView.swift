@@ -1,23 +1,34 @@
 import AppKit
 import SwiftUI
 
+/// A reveal is an event: reopening the same bookmark must scroll again.
+struct TranscriptScrollRequest: Equatable {
+    let id = UUID()
+    let segmentID: UUID
+}
+
 /// AppKit reuses passage views; playback changes update only affected visible items.
 struct TranscriptCollectionView: NSViewRepresentable {
     let segments: [TranscriptSegment]
     let activeID: UUID?
     let highlightedIDs: Set<UUID>
     let bookmarkedIDs: Set<UUID>
-    let scrollTarget: UUID?
+    let scrollTarget: TranscriptScrollRequest?
     let followPlayback: Bool
     let onManualScroll: () -> Void
     let onSelect: (TranscriptSegment) -> Void
     let onToggleBookmark: ((TranscriptSegment) -> Void)?
+    var fontSize: CGFloat = 16
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
+        makeScrollView(coordinator: context.coordinator)
+    }
+
+    func makeScrollView(coordinator: Coordinator) -> NSScrollView {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
@@ -29,23 +40,30 @@ struct TranscriptCollectionView: NSViewRepresentable {
         layout.sectionInset = NSEdgeInsets(top: 16, left: 20, bottom: 20, right: 20)
         collection.collectionViewLayout = layout
         collection.register(PassageItem.self, forItemWithIdentifier: PassageItem.identifier)
-        collection.dataSource = context.coordinator
-        collection.delegate = context.coordinator
+        collection.dataSource = coordinator
+        collection.delegate = coordinator
         scroll.documentView = collection
-        context.coordinator.collection = collection
-        context.coordinator.scrollObserver = NotificationCenter.default.addObserver(
+        coordinator.hasLoaded = false
+        coordinator.collection = collection
+        coordinator.scrollObserver = NotificationCenter.default.addObserver(
             forName: NSScrollView.willStartLiveScrollNotification, object: scroll, queue: .main,
-        ) { [weak coordinator = context.coordinator] _ in
+        ) { [weak coordinator] _ in
             Task { @MainActor in coordinator?.parent.onManualScroll() }
         }
         return scroll
     }
 
     func updateNSView(_: NSScrollView, context: Context) {
-        let coordinator = context.coordinator
+        update(coordinator: context.coordinator)
+    }
+
+    func update(coordinator: Coordinator) {
         let previous = coordinator.parent
         coordinator.parent = self
         guard let collection = coordinator.collection else { return }
+        let contentChanged = !coordinator.hasLoaded || previous.segments != segments
+        let fontChanged = previous.fontSize != fontSize
+        let readingAnchor = fontChanged && !followPlayback ? collection.indexPathsForVisibleItems().min() : nil
         if !coordinator.hasLoaded {
             coordinator.hasLoaded = true
             collection.reloadData()
@@ -56,11 +74,22 @@ struct TranscriptCollectionView: NSViewRepresentable {
                 && zip(previous.segments, segments).allSatisfy { $0.id == $1.id }
             if appended {
                 let paths = Set((previous.segments.count ..< segments.count).map { IndexPath(item: $0, section: 0) })
-                collection.animator().insertItems(at: paths)
+                // Commit synchronously so an immediately following seek sees
+                // the new rows and their final layout, not an insertion animation.
+                collection.insertItems(at: paths)
             } else {
                 collection.reloadData()
             }
-        } else if previous.activeID != activeID || previous.highlightedIDs != highlightedIDs
+        }
+        if fontChanged {
+            let context = NSCollectionViewFlowLayoutInvalidationContext()
+            context.invalidateFlowLayoutDelegateMetrics = true
+            context.invalidateFlowLayoutAttributes = true
+            collection.collectionViewLayout?.invalidateLayout(with: context)
+        }
+        // Content and playback can change in the same SwiftUI transaction.
+        // Never let a row insertion swallow an active-caption refresh.
+        if contentChanged || fontChanged || previous.activeID != activeID || previous.highlightedIDs != highlightedIDs
             || previous.bookmarkedIDs != bookmarkedIDs
         {
             for item in collection.visibleItems() {
@@ -69,10 +98,14 @@ struct TranscriptCollectionView: NSViewRepresentable {
                 coordinator.configure(passage, at: index)
             }
         }
-        let requested = previous.scrollTarget != scrollTarget ? scrollTarget : nil
-        let following = followPlayback && (previous.activeID != activeID || !previous.followPlayback) ? activeID : nil
+        let requested = previous.scrollTarget != scrollTarget ? scrollTarget?.segmentID : nil
+        let following = followPlayback && (contentChanged || fontChanged || previous.activeID != activeID || !previous.followPlayback) ? activeID : nil
         if let target = requested ?? following, let index = segments.firstIndex(where: { $0.id == target }) {
+            collection.layoutSubtreeIfNeeded()
             collection.scrollToItems(at: [IndexPath(item: index, section: 0)], scrollPosition: .centeredVertically)
+        } else if let readingAnchor, segments.indices.contains(readingAnchor.item) {
+            collection.layoutSubtreeIfNeeded()
+            collection.scrollToItems(at: [readingAnchor], scrollPosition: .top)
         }
     }
 
@@ -107,6 +140,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
             item.configure(segment: segment, active: segment.id == parent.activeID,
                            matched: parent.highlightedIDs.contains(segment.id),
                            bookmarked: parent.bookmarkedIDs.contains(segment.id),
+                           fontSize: parent.fontSize,
                            onPin: parent.onToggleBookmark.map { toggle in
                                { toggle(segment) }
                            })
@@ -127,7 +161,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
             let text = parent.segments[indexPath.item].text as NSString
             let rect = text.boundingRect(with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
                                          options: [.usesLineFragmentOrigin, .usesFontLeading],
-                                         attributes: [.font: NSFont.systemFont(ofSize: 16)])
+                                         attributes: [.font: NSFont.systemFont(ofSize: parent.fontSize)])
             return NSSize(width: width, height: ceil(rect.height) + 58)
         }
     }
@@ -136,6 +170,19 @@ struct TranscriptCollectionView: NSViewRepresentable {
 @MainActor private final class PassageLayout: NSCollectionViewFlowLayout {
     override func shouldInvalidateLayout(forBoundsChange newBounds: NSRect) -> Bool {
         newBounds.width != collectionView?.bounds.width
+    }
+
+    override func invalidationContext(forBoundsChange newBounds: NSRect) -> NSCollectionViewLayoutInvalidationContext {
+        let context = super.invalidationContext(forBoundsChange: newBounds)
+        if let flowContext = context as? NSCollectionViewFlowLayoutInvalidationContext,
+           newBounds.width != collectionView?.bounds.width
+        {
+            // Full-width rows must be remeasured, not merely rearranged using
+            // their old widths (which creates columns when the window widens).
+            flowContext.invalidateFlowLayoutDelegateMetrics = true
+            flowContext.invalidateFlowLayoutAttributes = true
+        }
+        return context
     }
 }
 
@@ -185,8 +232,9 @@ struct TranscriptCollectionView: NSViewRepresentable {
         ])
     }
 
-    func configure(segment: TranscriptSegment, active: Bool, matched: Bool, bookmarked: Bool, onPin: (() -> Void)?) {
+    func configure(segment: TranscriptSegment, active: Bool, matched: Bool, bookmarked: Bool, fontSize: CGFloat, onPin: (() -> Void)?) {
         timestamp.stringValue = playbackTime(segment.start)
+        passage.font = .systemFont(ofSize: fontSize)
         passage.stringValue = segment.text
         self.onPin = onPin
         pin.isHidden = onPin == nil

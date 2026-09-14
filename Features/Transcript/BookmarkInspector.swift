@@ -5,6 +5,7 @@ import SwiftUI
 struct BookmarkInspector: View {
     let library: LibraryModel
     @Binding var collapsed: Bool
+    @State private var editingBookmark: Bookmark?
 
     var body: some View {
         Group {
@@ -15,6 +16,9 @@ struct BookmarkInspector: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: collapsed)
+        .sheet(item: $editingBookmark) { bookmark in
+            BookmarkTextEditor(bookmark: bookmark, controller: library.bookmarks)
+        }
     }
 
     private var collapsedRail: some View {
@@ -59,25 +63,37 @@ struct BookmarkInspector: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(library.bookmarks.items) { bookmark in
-                        Button {
-                            library.openBookmark(bookmark)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(playbackTime(bookmark.time))
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                                Text(bookmark.label ?? "Pinned passage")
-                                    .font(.callout)
-                                    .multilineTextAlignment(.leading)
-                                    .lineLimit(3)
+                        HStack(alignment: .top, spacing: 6) {
+                            Button {
+                                library.openBookmark(bookmark)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(playbackTime(bookmark.time))
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                    Text(bookmark.label ?? "Pinned passage")
+                                        .font(.callout)
+                                        .multilineTextAlignment(.leading)
+                                        .lineLimit(3)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .contentShape(Rectangle())
+                            Button {
+                                editingBookmark = bookmark
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            .help("Edit bookmark text")
+                            .accessibilityLabel("Edit bookmark at \(playbackTime(bookmark.time))")
                         }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
                         .buttonStyle(.plain)
                         .contextMenu {
+                            Button("Edit Text…") {
+                                editingBookmark = bookmark
+                            }
                             Button("Remove Pin", role: .destructive) {
                                 library.bookmarks.remove(bookmark)
                             }
@@ -88,5 +104,70 @@ struct BookmarkInspector: View {
             }
         }
         .frame(width: 240)
+    }
+}
+
+private struct BookmarkTextEditor: View {
+    let bookmark: Bookmark
+    let controller: BookmarkController
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String
+    @State private var saving = false
+    @State private var saveFailed = false
+    @FocusState private var textFocused: Bool
+
+    init(bookmark: Bookmark, controller: BookmarkController) {
+        self.bookmark = bookmark
+        self.controller = controller
+        _text = State(initialValue: bookmark.label ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Edit Bookmark Text").font(.headline)
+            Text("Saved at \(playbackTime(bookmark.time)) · timestamp stays unchanged")
+                .font(.callout).foregroundStyle(.secondary)
+            TextField("Bookmark text", text: $text, axis: .vertical)
+                .lineLimit(2 ... 4)
+                .textFieldStyle(.roundedBorder)
+                .focused($textFocused)
+                .disabled(saving)
+                .onChange(of: text) { _, value in
+                    if value.count > 80 {
+                        text = String(value.prefix(80))
+                    }
+                }
+            Text("\(text.count)/80 characters. Leave empty to use “Pinned passage”.")
+                .font(.caption).foregroundStyle(.secondary)
+            if saveFailed {
+                Text("Couldn’t save the bookmark. Your text is still here; please try again.")
+                    .font(.callout).foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(saving)
+                Button(saving ? "Saving…" : "Save") {
+                    saving = true
+                    saveFailed = false
+                    Task {
+                        do {
+                            try await controller.rename(bookmark, label: text)
+                            dismiss()
+                        } catch {
+                            saveFailed = true
+                            saving = false
+                        }
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(saving)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+        .interactiveDismissDisabled(saving)
+        .onAppear { textFocused = true }
     }
 }

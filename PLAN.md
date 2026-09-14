@@ -70,6 +70,7 @@ The current baseline is `whisper.cpp`, not a claim that one model is fastest on 
 - Sidebar: library, processing queue, and connection status.
 - Library: title, duration, transcription status, and last listened position.
 - Main area: timestamped, selectable transcript passages; current passage highlighted.
+- Keep transcript passages in one column at every window size, including maximized/full-screen. Provide transcript font-size controls (12–32 pt, initially 16 pt), remember the preference, and remeasure wrapped passages without losing the reader's place.
 - Caption area: short readable text corresponding to the current playback time.
 - Persistent player: play/pause, seek bar, elapsed/remaining time, skip controls, speed, and volume.
 - Search: current lecture by default, with a library-wide mode and timestamped result snippets.
@@ -173,6 +174,8 @@ Bookmarks belong to audio content, not the filename, path, Drive location, or cu
 Use the SHA-256 digest as the bookmark partition key. Every bookmark query and mutation must include the digest of the currently open recording. Switching recordings immediately replaces the visible bookmark list and must never leave another recording's bookmarks on screen. An exact byte-for-byte duplicate intentionally resolves to the same content identity and therefore the same bookmark set, even if it has a different name or source location.
 
 A bookmark stores a stable ID, the audio-content SHA-256, an absolute playback timestamp, an optional user-visible label, and creation/update times. Validate that its timestamp is finite and within the recording duration. Bookmark selection seeks through the same playback controller used by transcript search results.
+
+Editing bookmark text changes only its label and update time. Preserve its exact saved timestamp, stable ID, audio digest, and creation time. Re-transcribing may change nearby passage wording or boundaries; do not relocate the bookmark or overwrite a user-edited label to match the new transcript.
 
 If a source file changes, its new digest creates a separate bookmark partition. Keep bookmarks associated with the previous digest in local storage so temporarily replacing or losing access to a source does not destroy user data. Do not automatically migrate bookmarks between different digests because timestamps may no longer refer to the same content.
 
@@ -281,7 +284,7 @@ Progress (2026-09-13, see `docs/inference.md` and `docs/benchmarks/2026-09-13-m4
 
 Exit: a user can import a two-hour local recording, transcribe, listen/read, search-to-seek, add and revisit recording-specific bookmarks, export a text transcript, close, and resume without technical intervention.
 
-Progress: per-recording bookmarks are implemented as SHA-256-keyed JSON (same partition rules as checkpoints). Pin a passage beside its timestamp; a right-hand inspector lists only the open recording's pins when any exist, collapses to a rail, and seeks through the playback controller. GRDB still replaces this store.
+Progress: per-recording bookmarks are implemented as SHA-256-keyed JSON (same partition rules as checkpoints). Pin a passage beside its timestamp; a right-hand inspector lists only the open recording's pins when any exist, collapses to a rail, and seeks through the playback controller. Its pencil button edits the bookmark label without changing the saved time. GRDB still replaces this store.
 
 ### Milestone 3: Google Drive
 

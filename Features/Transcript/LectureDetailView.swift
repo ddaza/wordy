@@ -6,8 +6,9 @@ struct LectureDetailView: View {
     @State private var query = ""
     @State private var hits: [TranscriptSearchHit] = []
     @State private var followPlayback = true
-    @State private var scrollTarget: UUID?
+    @State private var scrollTarget: TranscriptScrollRequest?
     @AppStorage("wordy.bookmarksCollapsed") private var bookmarksCollapsed = false
+    @AppStorage("wordy.transcriptFontSize") private var transcriptFontSize = 16.0
     @State private var confirmRetranscribe = false
 
     private var playback: PlaybackController {
@@ -32,14 +33,9 @@ struct LectureDetailView: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                HStack(spacing: 8) {
-                    if canRetranscribe {
-                        Button("Transcribe Again…") { confirmRetranscribe = true }
-                    }
-                    Toggle("Follow playback", isOn: $followPlayback)
-                        .toggleStyle(.button)
-                        .disabled(!playback.hasAudio || lecture.segments.isEmpty)
-                }
+                Toggle("Follow playback", isOn: $followPlayback)
+                    .toggleStyle(.button)
+                    .disabled(!playback.hasAudio || lecture.segments.isEmpty)
             }
             .padding(24)
             if !lecture.isSample {
@@ -77,9 +73,11 @@ struct LectureDetailView: View {
         }
         .onChange(of: library.pendingRevealTime) { _, time in
             guard let time else { return }
-            followPlayback = false
+            // A bookmark moves playback; keep following subsequent passages.
+            // Its saved time resolves against the current transcript generation.
+            followPlayback = true
             if let segment = lecture.segments.last(where: { $0.start <= time }) {
-                scrollTarget = segment.id
+                scrollTarget = TranscriptScrollRequest(segmentID: segment.id)
             }
             library.pendingRevealTime = nil
         }
@@ -95,14 +93,6 @@ struct LectureDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(retranscribeMessage)
-        }
-    }
-
-    private var canRetranscribe: Bool {
-        guard !lecture.isSample, let job, job.sha256 != nil else { return false }
-        switch job.status {
-        case .identifying: return false
-        default: return true
         }
     }
 
@@ -146,6 +136,27 @@ struct LectureDetailView: View {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                             .buttonStyle(.plain).accessibilityLabel("Clear search")
                     }
+                    Divider().frame(height: 18)
+                    Button {
+                        transcriptFontSize = max(12, effectiveFontSize - 2)
+                    } label: {
+                        Image(systemName: "textformat.size.smaller")
+                    }
+                    .disabled(effectiveFontSize <= 12)
+                    .help("Decrease transcript text size")
+                    .accessibilityLabel("Decrease transcript text size")
+                    Text("\(Int(effectiveFontSize)) pt")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Transcript text size: \(Int(effectiveFontSize)) points")
+                    Button {
+                        transcriptFontSize = min(32, effectiveFontSize + 2)
+                    } label: {
+                        Image(systemName: "textformat.size.larger")
+                    }
+                    .disabled(effectiveFontSize >= 32)
+                    .help("Increase transcript text size")
+                    .accessibilityLabel("Increase transcript text size")
                 }
                 .padding(16)
                 if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -161,7 +172,7 @@ struct LectureDetailView: View {
                                 ForEach(hits) { hit in
                                     Button {
                                         followPlayback = false
-                                        scrollTarget = hit.id
+                                        scrollTarget = TranscriptScrollRequest(segmentID: hit.id)
                                         if playback.hasAudio {
                                             playback.seek(to: hit.time)
                                         }
@@ -192,6 +203,7 @@ struct LectureDetailView: View {
                             )
                         }
                     },
+                    fontSize: effectiveFontSize,
                 )
                 if let job, isPartial, job.completedThrough < lecture.duration {
                     Divider()
@@ -206,6 +218,10 @@ struct LectureDetailView: View {
 
     private var bookmarkedIDs: Set<UUID> {
         Set(lecture.segments.filter { library.bookmarks.isBookmarked(time: $0.start) }.map(\.id))
+    }
+
+    private var effectiveFontSize: Double {
+        transcriptFontSize.isFinite ? min(32, max(12, transcriptFontSize)) : 16
     }
 
     private struct SearchKey: Equatable {

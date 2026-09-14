@@ -65,3 +65,32 @@ private let digestB = String(repeating: "b", count: 64)
     #expect(decoded == set)
     try decoded.validated(againstDuration: 90)
 }
+
+@Test func `editing bookmark text preserves its exact timestamp and identity`() throws {
+    let created = Date(timeIntervalSince1970: 100)
+    let edited = Date(timeIntervalSince1970: 200)
+    var set = try BookmarkSet(audioSHA256: digestA)
+    set = try set.toggling(sha256: digestA, time: 123.456789, duration: 7200, label: "Old transcript text", now: created)
+    set = try set.toggling(sha256: digestA, time: 456, duration: 7200, label: "Other pin", now: created)
+    let original = set.bookmarks[0]
+    let renamed = try set.renaming(sha256: digestA, id: original.id, label: "  My own description  ", now: edited)
+    let bookmark = renamed.bookmarks[0]
+    #expect(bookmark.id == original.id)
+    #expect(bookmark.audioSHA256 == original.audioSHA256)
+    #expect(bookmark.time == original.time)
+    #expect(bookmark.createdAt == original.createdAt)
+    #expect(bookmark.updatedAt == edited)
+    #expect(bookmark.label == "My own description")
+    #expect(renamed.bookmarks[1] == set.bookmarks[1])
+    let decoded = try JSONDecoder().decode(BookmarkSet.self, from: JSONEncoder().encode(renamed))
+    #expect(decoded == renamed)
+    #expect(throws: BookmarkSet.BookmarkError.digestMismatch) {
+        try set.renaming(sha256: digestB, id: original.id, label: "Wrong recording")
+    }
+    #expect(try renamed.renaming(sha256: digestA, id: UUID(), label: "Deleted pin") == renamed)
+    let cleared = try renamed.renaming(sha256: digestA, id: original.id, label: " \n ")
+    #expect(cleared.bookmarks[0].label == nil)
+    #expect(cleared.bookmarks[0].time == original.time)
+    let shortened = try renamed.renaming(sha256: digestA, id: original.id, label: String(repeating: "a", count: 100))
+    #expect(shortened.bookmarks[0].label?.count == 80)
+}

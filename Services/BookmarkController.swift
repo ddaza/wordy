@@ -46,9 +46,9 @@ final class BookmarkController {
         let generation = generation
         Task {
             do {
-                var set = try await store.load(sha256: sha256)
-                set = try set.toggling(sha256: sha256, time: time, duration: duration, label: label)
-                try await store.save(set)
+                let set = try await store.update(sha256: sha256) {
+                    try $0.toggling(sha256: sha256, time: time, duration: duration, label: label)
+                }
                 guard generation == self.generation, self.digest == sha256 else { return }
                 items = set.bookmarks
             } catch {
@@ -64,14 +64,26 @@ final class BookmarkController {
         let sha256 = bookmark.audioSHA256
         Task {
             do {
-                var set = try await store.load(sha256: sha256)
-                set = set.removing(sha256: sha256, id: bookmark.id)
-                try await store.save(set)
+                let set = try await store.update(sha256: sha256) {
+                    $0.removing(sha256: sha256, id: bookmark.id)
+                }
                 guard generation == self.generation, self.digest == sha256 else { return }
                 items = set.bookmarks
             } catch {
                 return
             }
         }
+    }
+
+    func rename(_ bookmark: Bookmark, label: String) async throws {
+        let sha256 = bookmark.audioSHA256
+        guard digest == sha256 else { throw BookmarkSet.BookmarkError.digestMismatch }
+        generation += 1
+        let generation = generation
+        let set = try await store.update(sha256: sha256) {
+            try $0.renaming(sha256: sha256, id: bookmark.id, label: label)
+        }
+        guard generation == self.generation, digest == sha256 else { return }
+        items = set.bookmarks
     }
 }

@@ -25,16 +25,20 @@ final class PlaybackController {
     @ObservationIgnored private var endObserver: NSObjectProtocol?
     @ObservationIgnored private var scopedURL: URL?
     @ObservationIgnored private var timeline = try! TranscriptTimeline(segments: [])
+    @ObservationIgnored private var seekGeneration = UUID()
 
     init() {
         observer = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main,
-        ) { [weak self] time in
-            Task { @MainActor in self?.updateTime(time.seconds) }
+        ) { [weak self] _ in
+            // Read the current item clock when handling the event. A queued
+            // pre-seek tick must not put the highlight back at the old time.
+            Task { @MainActor in self?.synchronizeTime() }
         }
     }
 
     func load(url: URL?, duration: TimeInterval, timeline: TranscriptTimeline) {
+        seekGeneration = UUID()
         player.pause()
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
@@ -67,7 +71,7 @@ final class PlaybackController {
     /// caption is re-evaluated from the current media time.
     func updateTimeline(_ timeline: TranscriptTimeline) {
         self.timeline = timeline
-        updateTime(time)
+        synchronizeTime()
     }
 
     func togglePlayback() {
@@ -86,8 +90,20 @@ final class PlaybackController {
     func seek(to value: TimeInterval) {
         guard hasAudio, value.isFinite else { return }
         let value = min(max(value, 0), duration)
-        player.seek(to: CMTime(seconds: value, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
-        // Caption position is updated from the media clock, not the requested target.
+        let generation = UUID()
+        seekGeneration = generation
+        player.seek(to: CMTime(seconds: value, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            Task { @MainActor in
+                guard finished, let self, self.seekGeneration == generation else { return }
+                // AVPlayer may not emit a periodic tick immediately after a
+                // paused seek. Refresh from the actual completed seek as well.
+                self.synchronizeTime()
+            }
+        }
+    }
+
+    private func synchronizeTime() {
+        updateTime(player.currentTime().seconds)
     }
 
     private func updateTime(_ value: TimeInterval) {
@@ -100,6 +116,7 @@ final class PlaybackController {
     }
 
     func shutdown() {
+        seekGeneration = UUID()
         player.pause()
         if let observer {
             player.removeTimeObserver(observer)

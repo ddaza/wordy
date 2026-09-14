@@ -21,6 +21,11 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		D10000000000000000000001 /* PlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003; };
+		D10000000000000000000002 /* TranscriptCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004; };
+		D10000000000000000000005 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000008; };
+		D10000000000000000000006 /* BookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000009; };
+		D10000000000000000000007 /* AppDirectories.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000000000000000000000A; };
 		B00000000000000000000007 /* WordyTranscriptionService.xpc in Embed XPC Service */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* WordyTranscriptionService.xpc */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -63,6 +68,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D10000000000000000000003 /* PlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Player/PlaybackController.swift; sourceTree = SOURCE_ROOT; };
+		D10000000000000000000004 /* TranscriptCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Transcript/TranscriptCollectionView.swift; sourceTree = SOURCE_ROOT; };
+		D10000000000000000000008 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkStore.swift; sourceTree = SOURCE_ROOT; };
+		D10000000000000000000009 /* BookmarkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkController.swift; sourceTree = SOURCE_ROOT; };
+		D1000000000000000000000A /* AppDirectories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/AppDirectories.swift; sourceTree = SOURCE_ROOT; };
 		B00000000000000000000002 /* Wordy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wordy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C00000000000000000000002 /* WordyTranscriptionService.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = WordyTranscriptionService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		D00000000000000000000002 /* WordyCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WordyCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -331,6 +341,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D10000000000000000000001 /* PlaybackController.swift in Sources */,
+				D10000000000000000000002 /* TranscriptCollectionView.swift in Sources */,
+				D10000000000000000000005 /* BookmarkStore.swift in Sources */,
+				D10000000000000000000006 /* BookmarkController.swift in Sources */,
+				D10000000000000000000007 /* AppDirectories.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

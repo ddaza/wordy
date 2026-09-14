@@ -20,6 +20,8 @@ A native macOS lecture player and transcription app, targeting macOS 14+ on Inte
 - Incremental results: passages appear per completed section while later sections stay visibly pending; playback and search work on the partial transcript. Transcribe Again discards the checkpoint and starts a new generation with the model currently in use.
 - Checkpointed jobs keyed by the recording's SHA-256: pause, resume, quit, worker crash, and re-import all continue from the last committed section.
 - Reusable AppKit transcript view with incremental row insertion, phrase search across passage boundaries, search-to-seek, follow-playback, and per-recording bookmarks (pin beside a passage timestamp; collapsible inspector on the right when the open recording has pins).
+- Edit bookmark text using its pencil button or **Edit Text…** context menu. Labels are saved locally; editing and re-transcribing preserve the bookmark's exact timestamp.
+- The transcript stays in one column when resizing or maximizing. Text-size buttons beside search adjust it from 12–32 pt and remember the preference across launches.
 - `wordy-bench` command-line harness and `scripts/bench-matrix.sh` for repeatable engine/model/chunk-policy measurements.
 - Universal Release builds (`arm64` + `x86_64`) of the app, worker, and engine with macOS 14.0 minimum.
 
@@ -74,6 +76,8 @@ The Universal Release app is produced at `build/DerivedData/Build/Products/Relea
 | `Vendor/` | Git-ignored pinned `whisper.cpp` checkout produced by `scripts/fetch-whisper.sh`. |
 | `Config/` | App and worker property lists. |
 | `Tests/` | Timing, search, chunking, reconciliation, checkpoint, bookmarks, digest, and message tests. |
+
+`make test` also exercises the real AVPlayer and AppKit transcript view with synthetic audio, including bookmark seeks after transcript replacement, silence gaps, repeated reveals, and highlight updates during incremental transcription. Bookmark storage tests cover persisted label edits and recording isolation. These macOS integration tests are excluded from `make test-core`.
 | `LICENSE`, `THIRD_PARTY_NOTICES.md` | MIT license for Wordy and notices for bundled dependencies (`whisper.cpp`/ggml, speech models). |
 | `docs/` | Scaffold record, inference/engine documentation, benchmark records, development assets. |
 | `assets/` | Git-ignored local recordings and model files for deliberate manual and performance checks. |

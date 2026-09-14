@@ -104,6 +104,16 @@ public struct BookmarkSet: Codable, Equatable, Sendable {
         return next
     }
 
+    /// Editing a label never moves the saved audio position or changes identity.
+    public func renaming(sha256: String, id: UUID, label: String?, now: Date = Date()) throws -> BookmarkSet {
+        try require(sha256: sha256)
+        var next = self
+        guard let index = next.bookmarks.firstIndex(where: { $0.id == id }) else { return self }
+        next.bookmarks[index].label = Bookmark.normalizedLabel(label)
+        next.bookmarks[index].updatedAt = now
+        return next
+    }
+
     public func validated(againstDuration duration: TimeInterval) throws {
         try validateMembership()
         for bookmark in bookmarks {

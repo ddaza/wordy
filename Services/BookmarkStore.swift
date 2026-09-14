@@ -32,9 +32,16 @@ actor BookmarkStore {
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(set)
         let destination = fileURL(sha256: set.audioSHA256)
-        let temporary = directory.appendingPathComponent(".\(set.audioSHA256).\(UUID().uuidString).tmp")
-        try data.write(to: temporary, options: [.atomic])
-        _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
+        try data.write(to: destination, options: [.atomic])
+    }
+
+    /// Keep read/modify/write in one actor turn so an edit cannot be overwritten
+    /// by a concurrent pin or removal using an older snapshot.
+    func update(sha256: String, mutation: @Sendable (BookmarkSet) throws -> BookmarkSet) throws -> BookmarkSet {
+        let set = try mutation(load(sha256: sha256))
+        guard set.audioSHA256 == sha256 else { throw BookmarkSet.BookmarkError.digestMismatch }
+        try save(set)
+        return set
     }
 
     private func fileURL(sha256: String) -> URL {
