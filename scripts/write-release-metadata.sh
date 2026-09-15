@@ -1,5 +1,5 @@
 #!/bin/sh
-# Write SHA256SUMS.txt and a GitHub release notes draft for make release.
+# Write SHA256SUMS.txt and a GitHub release notes draft for make package.
 #
 # Usage: scripts/write-release-metadata.sh <version> <dist-dir>
 set -eu

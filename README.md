@@ -48,10 +48,9 @@ make build-arm64       # Cross-compile an Apple Silicon Release app
 make build-x86_64      # Cross-compile an Intel Release app
 make verify-universal  # Build and verify one app containing both architectures
 make check             # Native tests plus Universal Release verification
-make release           # Build universal, arm64, and x86_64 DMGs into build/dist
-make push-release      # Recheck those disk images and publish the GitHub release with gh
+make package           # Build universal, arm64, and x86_64 DMGs into build/dist
+make release           # Recheck those disk images and publish the GitHub release with gh
 make hooks             # Install Lefthook git hooks
-make package           # Write a Universal Release DMG into build/dist
 make icon              # Regenerate the app icon (system serif, no bundled font)
 ```
 
@@ -87,12 +86,12 @@ The user-facing version lives in [`Config/Version.xcconfig`](Config/Version.xcco
 Bump both numbers in that file, commit, then from this machine:
 
 ```sh
-make release        # icon if missing, three Release apps, DMGs, checksums, notes
+make package        # icon if missing, three Release apps, DMGs, checksums, notes
 # review build/dist/ and edit RELEASE_NOTES.md if you want
-make push-release   # re-verify the disk images, git push, gh release create
+make release        # re-verify the disk images, git push, gh release create
 ```
 
-`make push-release` refuses dirty tracked files and an existing `v*` tag. 0.x releases are marked as GitHub prereleases. Each DMG contains Wordy and an Applications shortcut. The app is ad-hoc signed and not notarized; Gatekeeper will warn until it is opened from Finder. Signing, notarization, and Sparkle remain Milestone 4.
+`make release` refuses dirty tracked files and an existing `v*` tag. 0.x releases are marked as GitHub prereleases. Each DMG contains Wordy and an Applications shortcut. The app is ad-hoc signed and not notarized; Gatekeeper will warn until it is opened from Finder. Signing, notarization, and Sparkle remain Milestone 4.
 
 ## Layout
 

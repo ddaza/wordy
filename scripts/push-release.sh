@@ -1,5 +1,5 @@
 #!/bin/sh
-# Secondary check of make release packages, then publish with gh.
+# Secondary check of make package disk images, then publish with gh.
 #
 # Usage: scripts/push-release.sh
 set -eu
@@ -21,7 +21,7 @@ if [ -z "$VERSION" ]; then
 fi
 
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-    echo "Tracked files are dirty; commit or stash before push-release." >&2
+    echo "Tracked files are dirty; commit or stash before make release." >&2
     git status --porcelain --untracked-files=no >&2
     exit 1
 fi
@@ -33,12 +33,12 @@ command -v gh >/dev/null || {
 
 for dmg in "$UNIVERSAL" "$ARM64" "$X86"; do
     if [ ! -f "$dmg" ]; then
-        echo "missing $dmg; run make release first." >&2
+        echo "missing $dmg; run make package first." >&2
         exit 1
     fi
 done
 if [ ! -f "$NOTES" ] || [ ! -f "$DIST/SHA256SUMS.txt" ]; then
-    echo "missing release notes or checksums in $DIST; run make release first." >&2
+    echo "missing release notes or checksums in $DIST; run make package first." >&2
     exit 1
 fi
 
