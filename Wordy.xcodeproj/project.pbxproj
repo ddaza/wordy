@@ -21,12 +21,12 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		D10000000000000000000001 /* PlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003; };
-		D10000000000000000000002 /* TranscriptCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004; };
-		D10000000000000000000005 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000008; };
-		D10000000000000000000006 /* BookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000009; };
-		D10000000000000000000007 /* AppDirectories.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000000000000000000000A; };
 		B00000000000000000000007 /* WordyTranscriptionService.xpc in Embed XPC Service */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* WordyTranscriptionService.xpc */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		D10000000000000000000001 /* Features/Player/PlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* Features/Player/PlaybackController.swift */; };
+		D10000000000000000000002 /* Features/Transcript/TranscriptCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* Features/Transcript/TranscriptCollectionView.swift */; };
+		D10000000000000000000005 /* Services/BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000008 /* Services/BookmarkStore.swift */; };
+		D10000000000000000000006 /* Services/BookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000009 /* Services/BookmarkController.swift */; };
+		D10000000000000000000007 /* Services/AppDirectories.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000000000000000000000A /* Services/AppDirectories.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,14 +68,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D10000000000000000000003 /* PlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Player/PlaybackController.swift; sourceTree = SOURCE_ROOT; };
-		D10000000000000000000004 /* TranscriptCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Transcript/TranscriptCollectionView.swift; sourceTree = SOURCE_ROOT; };
-		D10000000000000000000008 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkStore.swift; sourceTree = SOURCE_ROOT; };
-		D10000000000000000000009 /* BookmarkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkController.swift; sourceTree = SOURCE_ROOT; };
-		D1000000000000000000000A /* AppDirectories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/AppDirectories.swift; sourceTree = SOURCE_ROOT; };
 		B00000000000000000000002 /* Wordy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wordy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C00000000000000000000002 /* WordyTranscriptionService.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = WordyTranscriptionService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		D00000000000000000000002 /* WordyCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WordyCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D10000000000000000000003 /* Features/Player/PlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Player/PlaybackController.swift; sourceTree = SOURCE_ROOT; };
+		D10000000000000000000004 /* Features/Transcript/TranscriptCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Transcript/TranscriptCollectionView.swift; sourceTree = SOURCE_ROOT; };
+		D10000000000000000000008 /* Services/BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkStore.swift; sourceTree = SOURCE_ROOT; };
+		D10000000000000000000009 /* Services/BookmarkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkController.swift; sourceTree = SOURCE_ROOT; };
+		D1000000000000000000000A /* Services/AppDirectories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/AppDirectories.swift; sourceTree = SOURCE_ROOT; };
 		G00000000000000000000002 /* wordy-bench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wordy-bench"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -124,6 +124,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		67C44FD4305816F700C20291 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000003 /* Features/Player/PlaybackController.swift */,
+				D10000000000000000000004 /* Features/Transcript/TranscriptCollectionView.swift */,
+				D10000000000000000000008 /* Services/BookmarkStore.swift */,
+				D10000000000000000000009 /* Services/BookmarkController.swift */,
+				D1000000000000000000000A /* Services/AppDirectories.swift */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		A00000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
@@ -138,6 +150,7 @@
 				E00000000000000000000009 /* Benchmarks */,
 				E00000000000000000000010 /* scripts */,
 				A00000000000000000000003 /* Products */,
+				67C44FD4305816F700C20291 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -341,11 +354,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D10000000000000000000001 /* PlaybackController.swift in Sources */,
-				D10000000000000000000002 /* TranscriptCollectionView.swift in Sources */,
-				D10000000000000000000005 /* BookmarkStore.swift in Sources */,
-				D10000000000000000000006 /* BookmarkController.swift in Sources */,
-				D10000000000000000000007 /* AppDirectories.swift in Sources */,
+				D10000000000000000000001 /* Features/Player/PlaybackController.swift in Sources */,
+				D10000000000000000000002 /* Features/Transcript/TranscriptCollectionView.swift in Sources */,
+				D10000000000000000000005 /* Services/BookmarkStore.swift in Sources */,
+				D10000000000000000000006 /* Services/BookmarkController.swift in Sources */,
+				D10000000000000000000007 /* Services/AppDirectories.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -423,6 +436,7 @@
 		B00000000000000000000011 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/App-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -437,6 +451,7 @@
 		B00000000000000000000012 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/App-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (

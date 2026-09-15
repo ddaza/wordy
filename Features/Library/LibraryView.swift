@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct LibraryView: View {
@@ -42,7 +43,15 @@ struct LibraryView: View {
                     .id(lecture.id)
             } else {
                 ContentUnavailableView {
-                    Label("Make room for a good lecture", systemImage: "waveform.circle")
+                    Label {
+                        Text("Wordy: Audio Transcribe")
+                    } icon: {
+                        Image(nsImage: NSApplication.shared.applicationIconImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 72, height: 72)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
                 } description: {
                     Text("Import an audio file to start listening, or explore a sample transcript.")
                 } actions: {

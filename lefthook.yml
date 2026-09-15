@@ -1,6 +1,31 @@
+# Local checks in place of GitHub Actions. Wordy is a native macOS app with a
+# bundled whisper.cpp engine, so hosted runners are a poor fit.
+#
+#   pre-commit  format staged Swift (fast)
+#   pre-push    make test-core, then make test
+#   check       make check (tests + Universal Release); run with: lefthook run check
+#
+# Install once after clone: make hooks
+# Skip a single invocation: LEFTHOOK=0 git commit / git push
+# Personal overrides: lefthook-local.yml (gitignored)
+
 pre-commit:
   jobs:
-    - name: format Swift 
-      glob: "*.swift" # glob filter
-      exclude:
+    - name: format Swift
+      glob:
+        - "*.swift"
+        - "**/*.swift"
       run: swiftformat {staged_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: WordyCore tests
+      run: make test-core
+    - name: Xcode tests
+      run: make test
+
+check:
+  jobs:
+    - name: tests and Universal Release
+      run: make check

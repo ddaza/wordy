@@ -48,6 +48,9 @@ make build-arm64       # Cross-compile an Apple Silicon Release app
 make build-x86_64      # Cross-compile an Intel Release app
 make verify-universal  # Build and verify one app containing both architectures
 make check             # Native tests plus Universal Release verification
+make hooks             # Install Lefthook git hooks
+make package           # Zip the Universal Release app into build/dist
+make icon              # Regenerate the app icon (system serif, no bundled font)
 ```
 
 Use `make test-arm64` on Apple Silicon. `make test-x86_64` requires an Intel Mac or an x86_64 destination made available by Rosetta. Cross-compilation proves that an architecture builds; it does not replace running and profiling on physical hardware.
@@ -59,6 +62,31 @@ Run `make xcode` to open the project, or use Xcode directly: **⌘B** builds, **
 Xcode output is concise by default. Add `XCODE_FLAGS=` to a command when you need the complete build log, for example `make build XCODE_FLAGS=`.
 
 The Universal Release app is produced at `build/DerivedData/Build/Products/Release/Wordy.app`.
+
+## Git hooks
+
+Hosted GitHub Actions are a poor fit for this project: every check needs a macOS runner, Xcode, CMake, and a pinned whisper.cpp build. Checks run locally through [Lefthook](https://lefthook.dev) instead.
+
+```sh
+brew install lefthook swiftformat   # once per machine
+make hooks                          # once per clone
+```
+
+- **pre-commit** formats staged Swift files with SwiftFormat.
+- **pre-push** runs `make test-core` and `make test`.
+- **`lefthook run check`** (or `make check`) also verifies a Universal Release build. Use that before tagging.
+
+Skip a single commit or push with `LEFTHOOK=0`. Personal overrides go in git-ignored `lefthook-local.yml`.
+
+To attach a build to a GitHub release, bump `MARKETING_VERSION` in the Xcode project, tag `v` plus that version, then from this machine:
+
+```sh
+make check
+make package
+gh release create v0.1.0 --generate-notes build/dist/Wordy-0.1.0-macos-universal.zip
+```
+
+The zip is ad-hoc signed and not notarized. Gatekeeper will warn until the app is opened from Finder. Signing, notarization, and Sparkle remain Milestone 4.
 
 ## Layout
 
@@ -72,15 +100,15 @@ The Universal Release app is produced at `build/DerivedData/Build/Products/Relea
 | `Inference/` | whisper.cpp binding, bounded audio decoding, and the serial inference session shared by the worker and benchmark tool. |
 | `TranscriptionService/` | XPC worker entry point. |
 | `Benchmarks/` | `wordy-bench` command-line harness. |
-| `scripts/` | Pinned engine fetch/build and benchmark matrix scripts. |
+| `scripts/` | Pinned engine fetch/build, app packaging, and benchmark matrix scripts. |
 | `Vendor/` | Git-ignored pinned `whisper.cpp` checkout produced by `scripts/fetch-whisper.sh`. |
 | `Config/` | App and worker property lists. |
 | `Tests/` | Timing, search, chunking, reconciliation, checkpoint, bookmarks, digest, and message tests. |
-
-`make test` also exercises the real AVPlayer and AppKit transcript view with synthetic audio, including bookmark seeks after transcript replacement, silence gaps, repeated reveals, and highlight updates during incremental transcription. Bookmark storage tests cover persisted label edits and recording isolation. These macOS integration tests are excluded from `make test-core`.
 | `LICENSE`, `THIRD_PARTY_NOTICES.md` | MIT license for Wordy and notices for bundled dependencies (`whisper.cpp`/ggml, speech models). |
 | `docs/` | Scaffold record, inference/engine documentation, benchmark records, development assets. |
 | `assets/` | Git-ignored local recordings and model files for deliberate manual and performance checks. |
+
+`make test` also exercises the real AVPlayer and AppKit transcript view with synthetic audio, including bookmark seeks after transcript replacement, silence gaps, repeated reveals, and highlight updates during incremental transcription. Bookmark storage tests cover persisted label edits and recording isolation. These macOS integration tests are excluded from `make test-core`.
 
 Xcode synchronized folders include new source files automatically within their target folders. `Core/` is compiled into each relevant target; SwiftPM also exposes it as `WordyCore`. Keep it independent of UI frameworks.
 

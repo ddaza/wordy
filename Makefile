@@ -26,7 +26,7 @@ BENCH_OUTPUT ?= $(BUILD_ROOT)/benchmarks
 
 .PHONY: help doctor list xcode build run test test-core test-arm64 test-x86_64 \
 	release build-universal build-arm64 build-x86_64 verify-universal analyze check clean \
-	engine engine-clean bench
+	engine engine-clean bench hooks package icon
 
 help: ## Show the available development commands.
 	@awk 'BEGIN { FS = ":.*## "; printf "Wordy development commands:\n\n" } /^[a-zA-Z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -109,6 +109,17 @@ analyze: ## Run Xcode's static analyzer on the Debug configuration.
 		-destination '$(NATIVE_DESTINATION)' -derivedDataPath $(DERIVED_DATA) analyze
 
 check: test verify-universal ## Run native tests and verify a Universal Release build.
+
+hooks: ## Install Lefthook git hooks (format on commit, tests on push).
+	@command -v lefthook >/dev/null || { echo 'Install lefthook first: brew install lefthook' >&2; exit 1; }
+	lefthook install
+
+package: ## Zip the Universal Release app into build/dist (builds it if missing).
+	@if [ ! -d "$(RELEASE_APP)" ]; then $(MAKE) verify-universal; fi
+	scripts/package-app.sh "$(RELEASE_APP)" "$(BUILD_ROOT)/dist"
+
+icon: ## Regenerate the app icon from the macOS system serif (does not bundle a font).
+	swift scripts/generate-app-icon.swift
 
 clean: ## Ask Xcode and SwiftPM to clean generated build products.
 	$(XCODEBUILD) $(XCODE_COMMON) -derivedDataPath $(DERIVED_DATA) clean
