@@ -48,8 +48,10 @@ make build-arm64       # Cross-compile an Apple Silicon Release app
 make build-x86_64      # Cross-compile an Intel Release app
 make verify-universal  # Build and verify one app containing both architectures
 make check             # Native tests plus Universal Release verification
+make release           # Build universal, arm64, and x86_64 DMGs into build/dist
+make push-release      # Recheck those disk images and publish the GitHub release with gh
 make hooks             # Install Lefthook git hooks
-make package           # Zip the Universal Release app into build/dist
+make package           # Write a Universal Release DMG into build/dist
 make icon              # Regenerate the app icon (system serif, no bundled font)
 ```
 
@@ -78,15 +80,19 @@ make hooks                          # once per clone
 
 Skip a single commit or push with `LEFTHOOK=0`. Personal overrides go in git-ignored `lefthook-local.yml`.
 
-To attach a build to a GitHub release, bump `MARKETING_VERSION` in the Xcode project, tag `v` plus that version, then from this machine:
+## Releases
+
+The user-facing version lives in [`Config/Version.xcconfig`](Config/Version.xcconfig) (`MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`). Xcode, Info.plist, disk image names, and the git tag all read that file. The first cut is **0.1.0** (tag `v0.1.0`): a three-part version so later `0.1.1` / Sparkle comparisons work, without claiming a 1.0.
+
+Bump both numbers in that file, commit, then from this machine:
 
 ```sh
-make check
-make package
-gh release create v0.1.0 --generate-notes build/dist/Wordy-0.1.0-macos-universal.zip
+make release        # icon if missing, three Release apps, DMGs, checksums, notes
+# review build/dist/ and edit RELEASE_NOTES.md if you want
+make push-release   # re-verify the disk images, git push, gh release create
 ```
 
-The zip is ad-hoc signed and not notarized. Gatekeeper will warn until the app is opened from Finder. Signing, notarization, and Sparkle remain Milestone 4.
+`make push-release` refuses dirty tracked files and an existing `v*` tag. 0.x releases are marked as GitHub prereleases. Each DMG contains Wordy and an Applications shortcut. The app is ad-hoc signed and not notarized; Gatekeeper will warn until it is opened from Finder. Signing, notarization, and Sparkle remain Milestone 4.
 
 ## Layout
 
@@ -100,9 +106,9 @@ The zip is ad-hoc signed and not notarized. Gatekeeper will warn until the app i
 | `Inference/` | whisper.cpp binding, bounded audio decoding, and the serial inference session shared by the worker and benchmark tool. |
 | `TranscriptionService/` | XPC worker entry point. |
 | `Benchmarks/` | `wordy-bench` command-line harness. |
-| `scripts/` | Pinned engine fetch/build, app packaging, and benchmark matrix scripts. |
+| `scripts/` | Engine fetch/build, icon generation, packaging, and release publish scripts. |
 | `Vendor/` | Git-ignored pinned `whisper.cpp` checkout produced by `scripts/fetch-whisper.sh`. |
-| `Config/` | App and worker property lists. |
+| `Config/` | App and worker property lists, plus `Version.xcconfig` (marketing version and build number). |
 | `Tests/` | Timing, search, chunking, reconciliation, checkpoint, bookmarks, digest, and message tests. |
 | `LICENSE`, `THIRD_PARTY_NOTICES.md` | MIT license for Wordy and notices for bundled dependencies (`whisper.cpp`/ggml, speech models). |
 | `docs/` | Scaffold record, inference/engine documentation, benchmark records, development assets. |

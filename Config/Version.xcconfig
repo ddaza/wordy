@@ -1,0 +1,5 @@
+// Single source for CFBundleShortVersionString and CFBundleVersion.
+// Git tags and zip names are v$(MARKETING_VERSION). Bump both values
+// together before `make release`.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1

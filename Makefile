@@ -16,8 +16,12 @@ GENERIC_DESTINATION := generic/platform=macOS
 
 DEBUG_APP := $(DERIVED_DATA)/Build/Products/Debug/Wordy.app
 RELEASE_APP := $(DERIVED_DATA)/Build/Products/Release/Wordy.app
-RELEASE_EXECUTABLE := $(RELEASE_APP)/Contents/MacOS/Wordy
-RELEASE_WORKER := $(RELEASE_APP)/Contents/XPCServices/WordyTranscriptionService.xpc/Contents/MacOS/WordyTranscriptionService
+ARM64_APP := $(ARM64_DERIVED_DATA)/Build/Products/Release/Wordy.app
+X86_64_APP := $(X86_64_DERIVED_DATA)/Build/Products/Release/Wordy.app
+DIST ?= $(BUILD_ROOT)/dist
+VERSION_XCCONFIG := Config/Version.xcconfig
+VERSION := $(shell awk '/^MARKETING_VERSION/{print $$3}' $(VERSION_XCCONFIG))
+ICON_SET := App/Assets.xcassets/AppIcon.appiconset
 
 .DEFAULT_GOAL := help
 
@@ -25,8 +29,9 @@ BENCH := $(DERIVED_DATA)/Build/Products/Release/wordy-bench
 BENCH_OUTPUT ?= $(BUILD_ROOT)/benchmarks
 
 .PHONY: help doctor list xcode build run test test-core test-arm64 test-x86_64 \
-	release build-universal build-arm64 build-x86_64 verify-universal analyze check clean \
-	engine engine-clean bench hooks package icon
+	release build-universal build-arm64 build-x86_64 verify-universal verify-arm64 \
+	verify-x86_64 analyze check clean engine engine-clean bench hooks package icon \
+	ensure-icon push-release
 
 help: ## Show the available development commands.
 	@awk 'BEGIN { FS = ":.*## "; printf "Wordy development commands:\n\n" } /^[a-zA-Z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -67,7 +72,18 @@ test-x86_64: ## Run Xcode tests as x86_64; requires an Intel Mac or an available
 	$(XCODEBUILD) $(XCODE_COMMON) -configuration Debug \
 		-destination 'platform=macOS,arch=x86_64' -derivedDataPath $(BUILD_ROOT)/tests-x86_64 test
 
-release: build-universal ## Alias for the Universal Release build.
+release: ensure-icon ## Build universal, arm64, and x86_64 Release DMGs into build/dist.
+	@test -n "$(VERSION)" || { echo 'Could not read MARKETING_VERSION from $(VERSION_XCCONFIG)' >&2; exit 1; }
+	$(MAKE) verify-universal
+	$(MAKE) verify-arm64
+	$(MAKE) verify-x86_64
+	rm -rf $(DIST)
+	mkdir -p $(DIST)
+	sh scripts/package-app.sh "$(RELEASE_APP)" "$(DIST)" universal
+	sh scripts/package-app.sh "$(ARM64_APP)" "$(DIST)" arm64
+	sh scripts/package-app.sh "$(X86_64_APP)" "$(DIST)" x86_64
+	sh scripts/write-release-metadata.sh "$(VERSION)" "$(DIST)"
+	@printf '\nPrepared Wordy %s in %s\nReview the disk images and notes, then: make push-release\n' "$(VERSION)" "$(DIST)"
 
 build-universal: ## Build one Release app containing arm64 and x86_64 slices.
 	$(XCODEBUILD) $(XCODE_COMMON) -configuration Release \
@@ -84,11 +100,13 @@ build-x86_64: ## Cross-compile a Release app containing only Intel x86_64 code.
 		ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO build
 
 verify-universal: build-universal ## Verify both architectures and the ad-hoc signature in the Release app.
-	lipo $(RELEASE_EXECUTABLE) -verify_arch arm64 x86_64
-	lipo $(RELEASE_WORKER) -verify_arch arm64 x86_64
-	codesign --verify --deep --strict --verbose=2 $(RELEASE_APP)
-	@nm $(RELEASE_WORKER) | grep -q ' T _whisper_full$$' || (echo 'worker does not contain the whisper engine' && exit 1)
-	@printf 'Verified Universal app and XPC worker (with whisper.cpp): arm64 + x86_64\n'
+	sh scripts/verify-app.sh "$(RELEASE_APP)" universal "$(VERSION)"
+
+verify-arm64: build-arm64 ## Verify the Apple Silicon-only Release app.
+	sh scripts/verify-app.sh "$(ARM64_APP)" arm64 "$(VERSION)"
+
+verify-x86_64: build-x86_64 ## Verify the Intel-only Release app.
+	sh scripts/verify-app.sh "$(X86_64_APP)" x86_64 "$(VERSION)"
 
 engine: ## Fetch the pinned whisper.cpp release and build the universal static engine library.
 	WORDY_BUILD_ROOT=$(abspath $(BUILD_ROOT)) scripts/build-whisper.sh arm64 x86_64
@@ -114,12 +132,22 @@ hooks: ## Install Lefthook git hooks (format on commit, tests on push).
 	@command -v lefthook >/dev/null || { echo 'Install lefthook first: brew install lefthook' >&2; exit 1; }
 	lefthook install
 
-package: ## Zip the Universal Release app into build/dist (builds it if missing).
+package: ## Write a Universal Release DMG into build/dist (builds the app if missing).
 	@if [ ! -d "$(RELEASE_APP)" ]; then $(MAKE) verify-universal; fi
-	scripts/package-app.sh "$(RELEASE_APP)" "$(BUILD_ROOT)/dist"
+	mkdir -p $(DIST)
+	sh scripts/package-app.sh "$(RELEASE_APP)" "$(DIST)" universal
 
 icon: ## Regenerate the app icon from the macOS system serif (does not bundle a font).
 	swift scripts/generate-app-icon.swift
+
+ensure-icon: ## Generate the app icon set when the 1024px master is missing.
+	@if [ ! -f "$(ICON_SET)/Contents.json" ] || [ ! -f "$(ICON_SET)/icon_512@2x.png" ]; then \
+		printf 'App icon missing; generating with the system serif.\n'; \
+		$(MAKE) icon; \
+	fi
+
+push-release: ensure-icon ## Recheck build/dist disk images and publish the GitHub release with gh.
+	sh scripts/push-release.sh
 
 clean: ## Ask Xcode and SwiftPM to clean generated build products.
 	$(XCODEBUILD) $(XCODE_COMMON) -derivedDataPath $(DERIVED_DATA) clean

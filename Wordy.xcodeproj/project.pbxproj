@@ -76,6 +76,7 @@
 		D10000000000000000000008 /* Services/BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkStore.swift; sourceTree = SOURCE_ROOT; };
 		D10000000000000000000009 /* Services/BookmarkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkController.swift; sourceTree = SOURCE_ROOT; };
 		D1000000000000000000000A /* Services/AppDirectories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/AppDirectories.swift; sourceTree = SOURCE_ROOT; };
+		V00000000000000000000001 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Version.xcconfig; sourceTree = SOURCE_ROOT; };
 		G00000000000000000000002 /* wordy-bench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wordy-bench"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -139,6 +140,7 @@
 		A00000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
+				V00000000000000000000001 /* Version.xcconfig */,
 				E00000000000000000000001 /* App */,
 				E00000000000000000000002 /* Core */,
 				E00000000000000000000003 /* Features */,
@@ -392,17 +394,16 @@
 /* Begin XCBuildConfiguration section */
 		A00000000000000000000011 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = V00000000000000000000001 /* Version.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_TESTABILITY = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -414,16 +415,15 @@
 		};
 		A00000000000000000000012 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = V00000000000000000000001 /* Version.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_HARDENED_RUNTIME = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
 				ONLY_ACTIVE_ARCH = NO;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
