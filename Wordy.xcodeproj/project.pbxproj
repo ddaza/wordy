@@ -27,6 +27,13 @@
 		D10000000000000000000005 /* Services/BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000008 /* Services/BookmarkStore.swift */; };
 		D10000000000000000000006 /* Services/BookmarkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000009 /* Services/BookmarkController.swift */; };
 		D10000000000000000000007 /* Services/AppDirectories.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000000000000000000000A /* Services/AppDirectories.swift */; };
+		D20000000000000000000001 /* Services/CloudSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000000 /* Services/CloudSettings.swift */; };
+		D20000000000000000000003 /* Services/OpenRouterProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* Services/OpenRouterProvider.swift */; };
+		D20000000000000000000005 /* Services/TranscriptionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* Services/TranscriptionCoordinator.swift */; };
+		D20000000000000000000007 /* Services/CheckpointStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000006 /* Services/CheckpointStore.swift */; };
+		D20000000000000000000009 /* Services/WorkerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000008 /* Services/WorkerClient.swift */; };
+		D2000000000000000000000B /* Services/ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000000000000000000000A /* Services/ModelManager.swift */; };
+		D2000000000000000000000D /* Services/ResponsivenessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2000000000000000000000C /* Services/ResponsivenessMonitor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,8 +83,15 @@
 		D10000000000000000000008 /* Services/BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkStore.swift; sourceTree = SOURCE_ROOT; };
 		D10000000000000000000009 /* Services/BookmarkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/BookmarkController.swift; sourceTree = SOURCE_ROOT; };
 		D1000000000000000000000A /* Services/AppDirectories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/AppDirectories.swift; sourceTree = SOURCE_ROOT; };
-		V00000000000000000000001 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Version.xcconfig; sourceTree = SOURCE_ROOT; };
+		D20000000000000000000000 /* Services/CloudSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/CloudSettings.swift; sourceTree = SOURCE_ROOT; };
+		D20000000000000000000002 /* Services/OpenRouterProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/OpenRouterProvider.swift; sourceTree = SOURCE_ROOT; };
+		D20000000000000000000004 /* Services/TranscriptionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/TranscriptionCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		D20000000000000000000006 /* Services/CheckpointStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/CheckpointStore.swift; sourceTree = SOURCE_ROOT; };
+		D20000000000000000000008 /* Services/WorkerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/WorkerClient.swift; sourceTree = SOURCE_ROOT; };
+		D2000000000000000000000A /* Services/ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/ModelManager.swift; sourceTree = SOURCE_ROOT; };
+		D2000000000000000000000C /* Services/ResponsivenessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/ResponsivenessMonitor.swift; sourceTree = SOURCE_ROOT; };
 		G00000000000000000000002 /* wordy-bench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "wordy-bench"; sourceTree = BUILT_PRODUCTS_DIR; };
+		V00000000000000000000001 /* Config/Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Version.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -133,6 +147,13 @@
 				D10000000000000000000008 /* Services/BookmarkStore.swift */,
 				D10000000000000000000009 /* Services/BookmarkController.swift */,
 				D1000000000000000000000A /* Services/AppDirectories.swift */,
+				D2000000000000000000000C /* Services/ResponsivenessMonitor.swift */,
+				D2000000000000000000000A /* Services/ModelManager.swift */,
+				D20000000000000000000008 /* Services/WorkerClient.swift */,
+				D20000000000000000000006 /* Services/CheckpointStore.swift */,
+				D20000000000000000000004 /* Services/TranscriptionCoordinator.swift */,
+				D20000000000000000000002 /* Services/OpenRouterProvider.swift */,
+				D20000000000000000000000 /* Services/CloudSettings.swift */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -140,7 +161,7 @@
 		A00000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
-				V00000000000000000000001 /* Version.xcconfig */,
+				V00000000000000000000001 /* Config/Version.xcconfig */,
 				E00000000000000000000001 /* App */,
 				E00000000000000000000002 /* Core */,
 				E00000000000000000000003 /* Features */,
@@ -361,6 +382,13 @@
 				D10000000000000000000005 /* Services/BookmarkStore.swift in Sources */,
 				D10000000000000000000006 /* Services/BookmarkController.swift in Sources */,
 				D10000000000000000000007 /* Services/AppDirectories.swift in Sources */,
+				D2000000000000000000000D /* Services/ResponsivenessMonitor.swift in Sources */,
+				D2000000000000000000000B /* Services/ModelManager.swift in Sources */,
+				D20000000000000000000009 /* Services/WorkerClient.swift in Sources */,
+				D20000000000000000000007 /* Services/CheckpointStore.swift in Sources */,
+				D20000000000000000000005 /* Services/TranscriptionCoordinator.swift in Sources */,
+				D20000000000000000000003 /* Services/OpenRouterProvider.swift in Sources */,
+				D20000000000000000000001 /* Services/CloudSettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -394,7 +422,7 @@
 /* Begin XCBuildConfiguration section */
 		A00000000000000000000011 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = V00000000000000000000001 /* Version.xcconfig */;
+			baseConfigurationReference = V00000000000000000000001 /* Config/Version.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_MODULES = YES;
@@ -415,7 +443,7 @@
 		};
 		A00000000000000000000012 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = V00000000000000000000001 /* Version.xcconfig */;
+			baseConfigurationReference = V00000000000000000000001 /* Config/Version.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_MODULES = YES;

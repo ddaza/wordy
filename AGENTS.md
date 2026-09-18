@@ -54,6 +54,7 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Use a supported external-browser OAuth flow with PKCE/state validation and Keychain token storage.
 - `drive.file` is for explicitly authorized files. Do not assume selecting a folder grants access to every child.
 - Broad browsing/watched folders require a deliberate permission and verification design.
+- Advanced Mode is implemented in `Services/CloudSettings.swift`, `Services/OpenRouterProvider.swift`, and the shared coordinator; see `docs/cloud-transcription.md`. Keep cloud checkpoint restoration paused, require fresh consent for resume/retry, and do not add automatic HTTP retries that can repeat provider charges.
 - Advanced Mode: store the OpenRouter API key in Keychain; require per-job consent before upload; normalize cloud segments into the same timestamped schema as local jobs; do not log keys, audio, or transcript contents.
 - Do not log audio, transcript contents, tokens, or signed download URLs. Use redacted identifiers and timing metrics for diagnostics.
 - Do not add telemetry or crash reporting that could carry transcript text or recording identifiers.

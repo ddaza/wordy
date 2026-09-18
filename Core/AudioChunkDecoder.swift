@@ -104,6 +104,9 @@ enum AudioChunkDecoder {
             let length = CMBlockBufferGetDataLength(block)
             guard length > 0 else { continue }
             let count = length / MemoryLayout<Float>.size
+            guard samples.count + count <= expected else {
+                throw AudioDecodingError.readerFailed("decoded audio exceeds the requested range")
+            }
             let previous = samples.count
             samples.append(contentsOf: repeatElement(0, count: count))
             let status = samples.withUnsafeMutableBufferPointer { pointer in

@@ -49,6 +49,7 @@ final class LibraryModel {
         coordinator.onSegmentsChanged = { [weak self] lectureID, segments, sha256 in
             self?.apply(segments: segments, sha256: sha256, to: lectureID)
         }
+        Task { await coordinator.cloud.refresh() }
         models.onReadyModelChanged = { [weak self] in
             self?.coordinator.modelBecameAvailable()
         }
@@ -172,8 +173,8 @@ final class LibraryModel {
         dismissedStatusLectureIDs.insert(lectureID)
     }
 
-    func retranscribe(_ lecture: Lecture) {
+    func retranscribe(_ lecture: Lecture, model: SpeechModel) {
         dismissedStatusLectureIDs.remove(lecture.id)
-        coordinator.retranscribe(lectureID: lecture.id)
+        coordinator.retranscribe(lectureID: lecture.id, model: model)
     }
 }

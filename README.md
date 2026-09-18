@@ -1,6 +1,6 @@
 # Wordy
 
-A native macOS lecture player and transcription app, targeting macOS 14+ on Intel and Apple Silicon. Transcription runs on your Mac by default. Optional Advanced Mode (OpenRouter BYOK) is on the roadmap for older Macs and is never enabled without explicit consent. Open source under the [MIT License](LICENSE).
+A native macOS lecture player and transcription app, targeting macOS 14+ on Intel and Apple Silicon. Transcription runs on your Mac by default. Optional Advanced Mode lets you use your own OpenRouter API key for cloud transcription, with explicit consent before each job. Open source under the [MIT License](LICENSE).
 
 ## Start development in Xcode
 
@@ -16,6 +16,7 @@ A native macOS lecture player and transcription app, targeting macOS 14+ on Inte
 
 - Native library window, local audio file selection, asynchronous media inspection, and AVPlayer playback with seeking, skip, speed, and volume.
 - Local transcription through a bundled XPC worker running pinned `whisper.cpp` (Metal on Apple Silicon, AVX2 CPU path on Intel).
+- Optional OpenRouter transcription: Advanced Mode is off by default, stores your key in Keychain, and asks before uploading a recording. Whisper Large V3 is the default cloud model; Large V3 Turbo is also available. Completed cloud sections survive interruptions and resume only after fresh consent. Settings and the recording show the model in use; Transcribe Again confirms that selection. Reported cloud cost and tokens update after each section and survive resume.
 - One-click model download from a pinned manifest with resume, SHA-256 verification, and atomic activation.
 - Incremental results: passages appear per completed section while later sections stay visibly pending; playback and search work on the partial transcript. Transcribe Again discards the checkpoint and starts a new generation with the model currently in use.
 - Checkpointed jobs keyed by the recording's SHA-256: pause, resume, quit, worker crash, and re-import all continue from the last committed section.
@@ -100,9 +101,9 @@ make release        # re-verify the disk images, git push, gh release create
 | `Makefile` | Short developer commands wrapping Xcode, SwiftPM, and the engine scripts. |
 | `App/` | SwiftUI app entry point and scene composition. |
 | `Features/` | Library, player, transcript surface, transcription status, and settings. |
-| `Core/` | Domain types, caption timeline, chunk planning/reconciliation, checkpoint model, bookmarks, worker messages, model catalog (`SpeechModels.json`), digests, benchmark record. |
-| `Services/` | Media inspection, XPC client, model manager, checkpoint store, bookmark store, transcription coordinator. |
-| `Inference/` | whisper.cpp binding, bounded audio decoding, and the serial inference session shared by the worker and benchmark tool. |
+| `Core/` | Domain types, shared bounded AVFoundation audio decoder, OpenRouter normalization, caption timeline, chunk planning/reconciliation, checkpoint model, bookmarks, worker messages, model catalog (`SpeechModels.json`), digests, benchmark record. |
+| `Services/` | Media inspection, XPC client, model manager, checkpoint store, bookmark store, transcription coordinator, OpenRouter HTTP adapter, and Keychain settings. |
+| `Inference/` | whisper.cpp binding, the serial inference session shared by the worker and benchmark tool. |
 | `TranscriptionService/` | XPC worker entry point. |
 | `Benchmarks/` | `wordy-bench` command-line harness. |
 | `scripts/` | Engine fetch/build, icon generation, packaging, and release publish scripts. |
@@ -121,6 +122,6 @@ Xcode synchronized folders include new source files automatically within their t
 
 Milestone 2: GRDB schema and migrations replacing the JSON checkpoint and bookmark documents, durable job coordinator and cache, FTS5 search, exports, playback-state restore, and the remaining recovery tests. Confirm the engine recommendation on physical M1 and Intel hardware first.
 
-Milestone 4 (roadmap, next after Milestone 2 for older Macs): Advanced Mode with OpenRouter BYOK cloud transcription — off by default, Keychain-stored user API key, per-job consent, provisional model `openai/whisper-large-v3`. See `PLAN.md` §9.
+Advanced Mode was brought forward by user request and is implemented before the remaining Milestone 2 work. Enable it in **Wordy → Settings → Advanced Mode**, save your OpenRouter API key, click **Use** beside a cloud model, then choose **Transcribe with OpenRouter…** in a recording. Review the recording/model and choose **Upload and Transcribe**. A local speech model is not required for cloud jobs. See [docs/cloud-transcription.md](docs/cloud-transcription.md) for recovery, privacy boundaries, and validation limits.
 
 See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, [docs/inference.md](docs/inference.md) for the engine, worker protocol, checkpoint design, and benchmark procedure, [docs/scaffold.md](docs/scaffold.md) for the original scaffold record, and [docs/development-assets.md](docs/development-assets.md) for local fixtures.

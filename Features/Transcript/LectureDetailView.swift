@@ -9,7 +9,9 @@ struct LectureDetailView: View {
     @State private var scrollTarget: TranscriptScrollRequest?
     @AppStorage("wordy.bookmarksCollapsed") private var bookmarksCollapsed = false
     @AppStorage("wordy.transcriptFontSize") private var transcriptFontSize = 16.0
+    @State private var cloudConsent: TranscriptionCoordinator.CloudConsent?
     @State private var confirmRetranscribe = false
+    @State private var localModelForConfirmation: SpeechModel?
 
     private var playback: PlaybackController {
         library.playback
@@ -31,8 +33,22 @@ struct LectureDetailView: View {
                     Text(lecture.title).font(.title2.weight(.semibold)).textSelection(.enabled)
                     Text(lecture.isSample ? "Sample transcript · no audio attached" : "Local audio · \(playbackTime(lecture.duration))")
                         .font(.callout).foregroundStyle(.secondary)
+                    if !lecture.isSample {
+                        Text("In use: \(library.coordinator.selectedModelDescription)")
+                            .font(.callout.weight(.medium))
+                        if let description = job?.modelDescription {
+                            Text("\(job?.status.isActive == true ? "Transcribing with" : "Transcript model"): \(description)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 Spacer()
+                if !lecture.isSample, library.coordinator.cloud.isEnabled {
+                    Button(job?.isCloud == true && job?.status != .complete ? "Resume with OpenRouter…" : "Transcribe with OpenRouter…") {
+                        cloudConsent = library.coordinator.prepareCloudConsent(lectureID: lecture.id)
+                    }
+                    .disabled(job?.sha256 == nil || (job?.isCloud == true && (job?.status.isActive == true || job?.status == .queued)))
+                }
                 Toggle("Follow playback", isOn: $followPlayback)
                     .toggleStyle(.button)
                     .disabled(!playback.hasAudio || lecture.segments.isEmpty)
@@ -45,7 +61,7 @@ struct LectureDetailView: View {
                     models: library.models,
                     isDismissed: library.dismissedStatusLectureIDs.contains(lecture.id),
                     onDismiss: { library.dismissTranscriptionStatus(for: lecture.id) },
-                    onRetranscribe: { confirmRetranscribe = true },
+                    onRetranscribe: prepareRetranscription,
                 )
             }
             Divider()
@@ -86,19 +102,37 @@ struct LectureDetailView: View {
                 bookmarksCollapsed = false
             }
         }
+        .sheet(item: $cloudConsent) { consent in
+            CloudConsentView(consent: consent, coordinator: library.coordinator) {
+                cloudConsent = nil
+            }
+        }
         .confirmationDialog("Transcribe Again", isPresented: $confirmRetranscribe, titleVisibility: .visible) {
             Button("Transcribe Again", role: .destructive) {
-                library.retranscribe(lecture)
+                if let model = localModelForConfirmation {
+                    library.retranscribe(lecture, model: model)
+                }
             }
+            .disabled(localModelForConfirmation == nil)
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(retranscribeMessage)
         }
     }
 
+    private func prepareRetranscription() {
+        switch library.coordinator.prepareRetranscription(lectureID: lecture.id) {
+        case let .cloud(consent): cloudConsent = consent
+        case let .local(model):
+            localModelForConfirmation = model
+            confirmRetranscribe = true
+        case nil: break
+        }
+    }
+
     private var retranscribeMessage: String {
-        let model = library.models.readyModel?.displayName ?? "the speech model you select"
-        var text = "This replaces the current transcript using \(model). Completed passages are discarded. Bookmarks are kept."
+        let model = localModelForConfirmation?.displayName ?? "a local model"
+        var text = "This replaces the current transcript locally on this Mac using \(model). Completed passages are discarded. Bookmarks are kept."
         if let job {
             switch job.status {
             case .running, .queued:
@@ -107,7 +141,7 @@ struct LectureDetailView: View {
                 break
             }
         }
-        if library.models.readyModel == nil {
+        if localModelForConfirmation == nil {
             text += " Download a model first if none is in use."
         }
         return text

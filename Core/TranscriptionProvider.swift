@@ -1,7 +1,7 @@
 import Foundation
 
-/// A request to transcribe a local recording. Wordy runs every transcription on
-/// the user's Mac; requests are only ever constructed for file URLs.
+/// A request for an on-device transcription adapter. Requests only accept local
+/// file URLs. Explicitly consented OpenRouter uploads use a separate adapter.
 public struct TranscriptionRequest: Sendable {
     public enum RequestError: Error { case localFileRequired }
     public let id: UUID

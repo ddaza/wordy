@@ -1,6 +1,6 @@
 # Wordy implementation plan
 
-Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs remain open before Milestone 1 can be closed (an Intel field run with `whisper-base` measured ~2.9× real time, motivating the Advanced Mode roadmap item below). See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence and Google Drive are not implemented yet. **Next roadmap feature after the local listening workflow:** optional Advanced Mode with Bring-Your-Own-Key (BYOK) cloud transcription via OpenRouter — local remains the default.
+Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs remain open before Milestone 1 can be closed (an Intel field run with `whisper-base` measured ~2.9× real time, motivating the Advanced Mode roadmap item below). See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence and Google Drive are not implemented yet. **Advanced Mode implementation brought forward by user request (2026-09-17):** optional OpenRouter cloud transcription is now implemented ahead of the remaining local workflow milestone. Local remains the default; see `docs/cloud-transcription.md` for scope and validation limits.
 
 ## 1. Product objective
 
@@ -242,7 +242,7 @@ Wordy remains a desktop application with **no Wordy-operated transcription backe
 - Do not add telemetry or crash reporting that could carry transcript text or recording identifiers. Diagnostics use redacted identifiers and timing metrics.
 - Prefer on-device improvements (language lock, larger/quantized models, future engine swaps behind the same interface) before suggesting cloud.
 
-### Advanced Mode (roadmap — next feature after Milestone 2 local workflow)
+### Advanced Mode (implemented ahead of Milestone 2 by user request)
 
 **Why:** Physical Intel Macs are in scope. A field run with local `whisper-base` measured about **2.9× real time** (a two-hour lecture ≈ six hours of CPU). Local models also struggle on accented English lectures that insert Latin/pinyin technical names. Advanced Mode gives those users a fast, higher-quality option without Wordy hosting billing or secrets.
 
@@ -338,13 +338,19 @@ Exit: a fresh user can connect Drive and complete the same listening workflow th
 
 ### Milestone 4: Advanced Mode — OpenRouter BYOK
 
-Priority: **next after Milestone 2** for older Intel Macs and hard accented / domain-vocabulary lectures. May ship before or after Drive depending on release sequencing; do not block Milestone 2 exit criteria.
+Priority updated by user request on 2026-09-17: implement this slice before continuing Milestone 2. The remaining local workflow and Drive milestones are unchanged.
 
 - Add Settings: Advanced Mode toggle (off by default), OpenRouter API key field (Keychain), model picker defaulting to `openai/whisper-large-v3`.
 - Implement an OpenRouter STT provider adapter: chunk upload, `verbose_json` segment normalization, progress, cancel semantics, error mapping, and digest-keyed checkpoints compatible with local jobs.
 - Require explicit per-job consent copy before any audio upload; never auto-fallback from local.
 - Test invalid/revoked keys, partial failure mid-lecture, network loss, duplicate submission avoidance, and that local mode remains unchanged when Advanced Mode is off.
 - Re-check OpenRouter pricing and Deepgram keyterm forwarding before locking the selectable model list.
+
+Implementation progress (2026-09-17): Settings toggle and Keychain storage, Whisper Large V3 / Large V3 Turbo selection, per-recording consent, serial bounded PCM WAV uploads, validated absolute segment timestamps, checkpoint resume, pause/revoke handling, and sanitized errors are implemented. Incomplete cloud jobs reopen paused and never fall back to local automatically. No automatic HTTP retries: an uncertain request may already have incurred a provider charge. Existing transcripts remain on disk until the first replacement section commits. Source identity is revalidated before a consented cloud run and file metadata checked between sections. See `docs/cloud-transcription.md`.
+
+UX and usage follow-up (2026-09-18): Advanced Mode is prominent near the top of Settings. Cloud models have Use buttons gated on a saved key, with persistent Keychain-save confirmation. One explicit local/cloud selection drives new jobs and Transcribe Again; running jobs retain their original model and confirmations bind the displayed model. Cloud-selected imports wait for consent. Recording UI identifies both the selection and the actual job model. API-reported USD cost, tokens, and observed section rate are checkpointed with each saved section; absent usage remains unknown and no catalog rate is assumed.
+
+Remaining validation: deliberate live API/Keychain GUI walkthrough, consented long cloud recording, and physical Intel/M1 responsiveness. The automated suite uses synthetic audio and intercepted HTTP; implementation does not imply that these live/hardware acceptance criteria have passed. Deepgram remains excluded. Pricing is not hard-coded; consent links to the selected model's current pricing.
 
 Exit: a user on an older Mac can enable Advanced Mode, paste their own key, and obtain a caption-compatible transcript for a long lecture without Wordy operating a backend; default users never upload audio.
 

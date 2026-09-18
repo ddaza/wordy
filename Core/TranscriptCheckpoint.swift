@@ -41,6 +41,7 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     public private(set) var segments: [TranscriptSegment]
     public private(set) var detectedLanguage: String?
     public private(set) var updatedAt: Date
+    public private(set) var cloudUsage: CloudUsageTotals?
 
     public init(audioSHA256: String, sourceDuration: TimeInterval, configuration: TranscriptionConfiguration,
                 chunkCount: Int, now: Date = Date())
@@ -81,16 +82,27 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     /// Appends one chunk's committed segments. Callers persist the returned value
     /// before requesting the next chunk so a crash recomputes at most one chunk.
     public func committing(chunkIndex: Int, segments newSegments: [TranscriptSegment], detectedLanguage: String?,
-                           now: Date = Date()) throws -> TranscriptCheckpoint
+                           now: Date = Date(), cloudUsage: OpenRouterUsage? = nil,
+                           replacingLastSegment: TranscriptSegment? = nil) throws -> TranscriptCheckpoint
     {
         guard chunkIndex == committedChunkCount else {
             throw CheckpointError.chunkOutOfOrder(expected: committedChunkCount, received: chunkIndex)
         }
-        let merged = segments + newSegments
+        var retained = segments
+        if let replacement = replacingLastSegment {
+            guard let previous = retained.last, replacement.id == previous.id, replacement.start == previous.start else {
+                throw CheckpointError.invalidSegments
+            }
+            retained[retained.count - 1] = replacement
+        }
+        let merged = retained + newSegments
         _ = try TranscriptTimeline(segments: merged)
         var next = self
         next.segments = merged
         next.committedChunkCount += 1
+        if configuration.engineName == "OpenRouter" {
+            next.cloudUsage = (self.cloudUsage ?? CloudUsageTotals(unreportedSections: committedChunkCount)).adding(cloudUsage)
+        }
         next.updatedAt = now
         if next.detectedLanguage == nil {
             next.detectedLanguage = detectedLanguage

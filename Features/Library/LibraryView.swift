@@ -92,6 +92,7 @@ struct LibraryView: View {
         guard let job = library.coordinator.jobs[lecture.id] else { return duration }
         switch job.status {
         case .identifying: return "\(duration) · preparing"
+        case .waitingForCloudConsent: return "\(duration) · cloud confirmation needed"
         case .waitingForModel: return "\(duration) · model needed"
         case .queued: return "\(duration) · waiting"
         case .running: return "\(duration) · transcribing \(Int(job.fractionComplete * 100))%"

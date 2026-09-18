@@ -29,9 +29,7 @@ actor CheckpointStore {
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(checkpoint)
         let destination = fileURL(sha256: checkpoint.audioSHA256)
-        let temporary = directory.appendingPathComponent(".\(checkpoint.audioSHA256).\(UUID().uuidString).tmp")
-        try data.write(to: temporary, options: [.atomic])
-        _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
+        try data.write(to: destination, options: [.atomic])
     }
 
     func delete(sha256: String) throws {

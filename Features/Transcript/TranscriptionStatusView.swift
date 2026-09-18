@@ -25,6 +25,9 @@ struct TranscriptionStatusView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title(for: job)).font(.callout.weight(.medium))
                     Text(detail(for: job)).font(.caption).foregroundStyle(.secondary)
+                    if let configuration = job.cloudConfiguration {
+                        CloudUsageStatsView(usage: job.cloudUsage, modelID: configuration.modelID)
+                    }
                 }
                 Spacer(minLength: 8)
                 actions(for: job)
@@ -59,6 +62,8 @@ struct TranscriptionStatusView: View {
         switch status {
         case .identifying, .queued, .running:
             ProgressView().controlSize(.small)
+        case .waitingForCloudConsent:
+            Image(systemName: "cloud").foregroundStyle(.tint)
         case .waitingForModel:
             Image(systemName: "arrow.down.circle").foregroundStyle(.tint)
         case .paused:
@@ -73,10 +78,11 @@ struct TranscriptionStatusView: View {
     private func title(for job: TranscriptionCoordinator.Job) -> String {
         switch job.status {
         case .identifying: "Preparing recording…"
+        case .waitingForCloudConsent: "Ready for cloud transcription"
         case .waitingForModel: "Speech model needed"
         case .queued: "Waiting for another lecture to finish"
         case let .running(chunkIndex, chunkCount):
-            "Transcribing on this Mac · \(Int(job.fractionComplete * 100))% · section \(chunkIndex + 1) of \(chunkCount)"
+            "Transcribing \(job.isCloud ? "with OpenRouter" : "on this Mac") · \(Int(job.fractionComplete * 100))% · section \(chunkIndex + 1) of \(chunkCount)"
         case .paused: "Transcription paused"
         case .complete: job.restoredFromCheckpoint ? "Transcript restored" : "Transcript complete"
         case .failed: "Transcription stopped"
@@ -87,6 +93,8 @@ struct TranscriptionStatusView: View {
         switch job.status {
         case .identifying:
             return "Reading the file to identify it. Nothing leaves your Mac."
+        case .waitingForCloudConsent:
+            return "\(coordinator.selectedModelDescription) is selected. Confirm this recording before audio is uploaded."
         case .waitingForModel:
             return "Download \(modelNeeded.displayName) (\(modelNeeded.sizeDescription)) once; transcription then runs locally."
         case .queued:
@@ -96,31 +104,44 @@ struct TranscriptionStatusView: View {
             if let rtf = job.lastRealTimeFactor, rtf > 0 {
                 text += String(format: " Speed %.1f× real time.", 1 / rtf)
             }
+            if let model = job.modelDescription {
+                text += " Model: \(model)."
+            }
             return text
+        case .paused where job.isCloud:
+            return "Completed sections are saved. Enable Advanced Mode and choose Resume with OpenRouter to confirm another upload. Accepted requests may still be billed."
         case .paused:
             return "Completed work through \(playbackTime(job.completedThrough)) is saved."
+        case .complete where job.isCloud:
+            return "All \(job.segments.count) passages are searchable. Transcribed with \(job.modelID ?? "OpenRouter")."
         case .complete:
             if let id = job.modelID, let name = SpeechModelCatalog.model(id: id)?.displayName {
                 return "All \(job.segments.count) passages are searchable. Transcribed with \(name)."
             }
             return "All \(job.segments.count) passages are searchable."
         case let .failed(message):
-            return message
+            return job.isCloud ? message + " Completed sections are saved. Retrying may repeat a charge for the unfinished section." : message
         }
     }
 
     @ViewBuilder
     private func actions(for job: TranscriptionCoordinator.Job) -> some View {
         switch job.status {
+        case .waitingForCloudConsent:
+            Button("Transcribe…") { onRetranscribe() }
         case .waitingForModel:
             ModelInstallButton(model: modelNeeded, models: models)
         case .running, .queued:
             Button("Pause") { coordinator.pause(lectureID: lecture.id) }
         case .paused:
-            Button("Resume") { coordinator.resume(lectureID: lecture.id) }
+            if !job.isCloud {
+                Button("Resume") { coordinator.resume(lectureID: lecture.id) }
+            }
             Button("Transcribe Again…") { onRetranscribe() }
         case .failed:
-            Button("Retry") { coordinator.resume(lectureID: lecture.id) }
+            if !job.isCloud {
+                Button("Retry") { coordinator.resume(lectureID: lecture.id) }
+            }
             Button("Transcribe Again…") { onRetranscribe() }
         case .identifying, .complete:
             EmptyView()
