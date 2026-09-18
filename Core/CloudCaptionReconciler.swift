@@ -2,16 +2,14 @@ import Foundation
 
 /// Turns cloud section output into committed, monotonic captions.
 ///
-/// OpenRouter phrase times often overlap even when the text is new. Unlike the
-/// earlier shorten/merge approach (which crushed prior rows and left timeline
-/// gaps), this matches local attribution: clamp an overlapping phrase to start
-/// at the previous end, and drop leading words only when they exactly match the
-/// committed boundary. Time overlap alone never deletes distinct words.
-///
-/// The exact-match window is larger than local inference because cloud sections
-/// re-hear 15 s of context and often re-emit a whole prior sentence.
+/// OpenRouter phrase times often overlap even when the text is new. Clamp an
+/// overlapping phrase to the previous end, and drop leading words only when they
+/// exactly match a suffix of the committed caption (prefix match). Never search
+/// for that boundary in the middle of the new phrase — short words like "yeah"
+/// would otherwise erase whole clauses.
 public enum CloudCaptionReconciler {
-    public static let maximumBoundaryWords = 32
+    /// Cloud sections re-hear overlap context; allow a longer exact prefix than local.
+    public static let maximumBoundaryWords = 24
 
     public struct Result: Sendable {
         public let replacingLastSegment: TranscriptSegment?
@@ -38,7 +36,7 @@ public enum CloudCaptionReconciler {
             var start = candidate.start
             if start < previousEnd {
                 let incoming = ChunkReconciler.normalizedWords(text)
-                let overlap = sharedBoundaryWords(trailing: previousWords, leading: incoming)
+                let overlap = sharedBoundaryPrefix(trailing: previousWords, leading: incoming)
                 if overlap > 0 {
                     text = ChunkReconciler.dropLeadingWords(overlap, from: text)
                 }
@@ -58,8 +56,8 @@ public enum CloudCaptionReconciler {
         return Result(replacingLastSegment: nil, segments: result)
     }
 
-    /// Longest exact suffix/prefix match, capped at `maximumBoundaryWords`.
-    static func sharedBoundaryWords(trailing: [String], leading: [String]) -> Int {
+    /// Longest exact match of `trailing`'s suffix with `leading`'s prefix only.
+    static func sharedBoundaryPrefix(trailing: [String], leading: [String]) -> Int {
         let limit = min(maximumBoundaryWords, trailing.count, leading.count)
         for length in stride(from: limit, through: 1, by: -1) {
             if Array(trailing.suffix(length)) == Array(leading.prefix(length)) {

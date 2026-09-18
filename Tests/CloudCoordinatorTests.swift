@@ -93,6 +93,15 @@
             defaults.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: directory)
         }
+
+        /// Cloud section count for the live OpenRouter chunk policy.
+        static func cloudChunks(duration: Double) -> Int {
+            ChunkPlanner.plan(duration: duration, policy: OpenRouterModel.whisperLargeV3.configuration.policy).count
+        }
+
+        static func cloudIndices(duration: Double) -> [Int] {
+            Array(0 ..< cloudChunks(duration: duration))
+        }
     }
 
     @MainActor
@@ -145,8 +154,9 @@
 
         @Test func `Transcribe Again snapshots the in-use cloud model and starts a new generation`() async throws {
             let f = try CloudFixture(); defer { f.cleanup() }
+            let chunks = CloudFixture.cloudChunks(duration: 120)
             var checkpoint = TranscriptCheckpoint(audioSHA256: f.digest, sourceDuration: 120,
-                                                  configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: 2)
+                                                  configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: chunks)
             checkpoint = try checkpoint.committing(chunkIndex: 0, segments: [.init(start: 0, end: 2, text: "Previous")], detectedLanguage: nil)
             try await f.store.save(checkpoint)
             await f.enable()
@@ -160,8 +170,8 @@
             f.settings.select(.whisperLargeV3)
             #expect(await f.coordinator.startCloud(consent: consent))
             try await eventually { f.coordinator.jobs[f.id]?.status == .complete }
-            #expect(await f.provider.indices == [0, 1])
-            #expect(await f.provider.models == [.whisperLargeV3Turbo, .whisperLargeV3Turbo])
+            #expect(await f.provider.indices == CloudFixture.cloudIndices(duration: 120))
+            #expect(await f.provider.models == Array(repeating: .whisperLargeV3Turbo, count: chunks))
             #expect(f.coordinator.jobs[f.id]?.modelDescription == "Whisper Large V3 Turbo · OpenRouter")
             let local = f.models.recommended
             try FileManager.default.createDirectory(at: f.directory.appendingPathComponent("models"), withIntermediateDirectories: true)
@@ -189,7 +199,8 @@
             await f.provider.configure()
             #expect(await f.coordinator.startCloud(consent: replacement))
             try await eventually { f.coordinator.jobs[f.id]?.status == .complete }
-            #expect(await f.provider.models == [.whisperLargeV3, .whisperLargeV3Turbo, .whisperLargeV3Turbo])
+            let chunks = CloudFixture.cloudChunks(duration: 120)
+            #expect(await f.provider.models == [.whisperLargeV3] + Array(repeating: .whisperLargeV3Turbo, count: chunks))
         }
 
         @Test func `cloud needs enabled settings a key and fresh per recording consent`() async throws {
@@ -211,8 +222,9 @@
             #expect(await f.coordinator.startCloud(consent: consent))
             #expect(await f.coordinator.startCloud(consent: consent) == false)
             try await eventually { f.coordinator.jobs[f.id]?.status == .complete }
-            #expect(await f.provider.indices == [0, 1])
-            #expect(await f.provider.models == [.whisperLargeV3, .whisperLargeV3])
+            let chunks = CloudFixture.cloudChunks(duration: 120)
+            #expect(await f.provider.indices == CloudFixture.cloudIndices(duration: 120))
+            #expect(await f.provider.models == Array(repeating: .whisperLargeV3, count: chunks))
         }
 
         @Test func `network failure preserves committed sections and never retries automatically`() async throws {
@@ -236,16 +248,18 @@
             let retry = try #require(f.coordinator.prepareCloudConsent(lectureID: f.id))
             #expect(await f.coordinator.startCloud(consent: retry))
             try await eventually { f.coordinator.jobs[f.id]?.status == .complete }
-            #expect(await f.provider.indices == [0, 1, 1, 2])
+            let chunks = CloudFixture.cloudChunks(duration: 180)
+            #expect(await f.provider.indices == [0, 1] + Array(1 ..< chunks))
             let complete = try #require(try await f.store.load(sha256: f.digest))
             #expect(complete.segments.first?.id == saved.segments.first?.id)
-            #expect(complete.committedChunkCount == 3)
+            #expect(complete.committedChunkCount == chunks)
         }
 
         @Test func `relaunch restores cloud work paused without granting upload consent`() async throws {
             let f = try CloudFixture(); defer { f.cleanup() }
+            let chunks = CloudFixture.cloudChunks(duration: 120)
             var checkpoint = TranscriptCheckpoint(audioSHA256: f.digest, sourceDuration: 120,
-                                                  configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: 2)
+                                                  configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: chunks)
             checkpoint = try checkpoint.committing(chunkIndex: 0, segments: [.init(start: 1, end: 2, text: "Saved")], detectedLanguage: "en")
             try await f.store.save(checkpoint)
             await f.enable()
@@ -258,7 +272,7 @@
             let consent = try #require(f.coordinator.prepareCloudConsent(lectureID: f.id))
             #expect(await f.coordinator.startCloud(consent: consent))
             try await eventually { f.coordinator.jobs[f.id]?.status == .complete }
-            #expect(await f.provider.indices == [1])
+            #expect(await f.provider.indices == Array(1 ..< chunks))
         }
 
         @Test func `disabling advanced mode cancels active uploads and invalidates consent`() async throws {
@@ -295,10 +309,13 @@
 
         @Test func `failed replacement keeps the old transcript and retry starts the new generation`() async throws {
             let f = try CloudFixture(); defer { f.cleanup() }
+            let chunks = CloudFixture.cloudChunks(duration: 120)
             var previous = TranscriptCheckpoint(audioSHA256: f.digest, sourceDuration: 120,
-                                                configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: 2)
+                                                configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: chunks)
             previous = try previous.committing(chunkIndex: 0, segments: [.init(start: 1, end: 2, text: "Original")], detectedLanguage: "en")
-            previous = try previous.committing(chunkIndex: 1, segments: [], detectedLanguage: "en")
+            for index in 1 ..< chunks {
+                previous = try previous.committing(chunkIndex: index, segments: [], detectedLanguage: "en")
+            }
             try await f.store.save(previous)
             await f.enable()
             await f.provider.configure(failingIndex: 0)
@@ -318,7 +335,7 @@
             #expect(retry.restarting)
             #expect(await f.coordinator.startCloud(consent: retry))
             try await eventually { f.coordinator.jobs[f.id]?.status == .complete }
-            #expect(await f.provider.indices == [0, 0, 1])
+            #expect(await f.provider.indices == [0] + CloudFixture.cloudIndices(duration: 120))
             #expect(try await f.store.load(sha256: f.digest)?.segments != previous.segments)
         }
 
