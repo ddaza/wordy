@@ -21,7 +21,7 @@ The coordinator serializes local and cloud work in the same queue. A one-use con
 
 Requests use the fixed HTTPS `/api/v1/audio/transcriptions` endpoint, multipart `file`, `model`, `response_format=verbose_json`, and `timestamp_granularities[]=segment`. The URLSession is ephemeral, disables cache/cookies, refuses redirects, and has a 120-second resource timeout. There are no application-level automatic HTTP retries. Responses are limited to 2 MiB and 4,096 segments. No provider response body, API key, audio, transcript, or source filename is logged.
 
-Only usable segment timestamps are accepted; Wordy does not fabricate timings from plain text. Explicitly empty segment/text output represents silence. Malformed, missing, reversed, unordered, or substantially out-of-range timing fails the section. Relative times are shifted by the actual decoded source offset and reconciled by `CloudCaptionReconciler` (word-boundary dedupe capped like local inference; time overlap alone never deletes words).
+Only usable segment timestamps are accepted; Wordy does not fabricate timings from plain text. Explicitly empty segment/text output represents silence. Malformed, missing, reversed, unordered, or substantially out-of-range timing fails the section. Relative times are shifted by the actual decoded source offset. `CloudCaptionReconciler` clamps overlapping phrases to the prior end and drops leading words only on an exact boundary match (never by time proportion, and never by shortening the previous caption). That avoids the gaps/duplicates seen when provider phrase times nest or partially overlap.
 
 ## Cloud usage in the transcription status
 

@@ -105,20 +105,51 @@ struct OpenRouterTests {
         #expect(text.contains("Cao Yuanfang"))
     }
 
-    @Test func `cloud boundary dedupe never strips more than the local word cap`() {
-        let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
-        let previous = TranscriptSegment(
-            start: 40, end: 55,
-            text: "one two three four five six seven eight nine ten eleven twelve",
+    @Test func `cloud overlapping phrases keep new words without crushing the prior caption`() {
+        let plan = ChunkPlanner.plan(duration: 360, policy: .cloudDefault)
+        // Mirrors the 3:00–3:35 failure: provider re-emits the thousand-gold
+        // sentence with a later start, then continues with herb names. The old
+        // shorten/merge path duplicated the first sentence and dropped the herbs.
+        let first = CloudCaptionReconciler.commit(
+            raw: [.init(start: 180, end: 210,
+                        text: "Qianjin Fang is the formula, worth more than a thousand gold. So if you get it, yeah.")],
+            for: plan[3], isLast: false, after: [],
         )
-        let raw = [RawSegment(
-            start: 50, end: 70,
-            text: "one two three four five six seven eight nine ten eleven twelve and new titles Zhang Zhongjing",
-        )]
-        let step = CloudCaptionReconciler.commit(raw: raw, for: plan[1], isLast: false, after: [previous])
-        let text = step.segments.map(\.text).joined(separator: " ")
-        #expect(text.contains("Zhang Zhongjing"))
-        #expect(text.contains("new titles"))
+        let second = CloudCaptionReconciler.commit(
+            raw: [
+                .init(start: 185, end: 215,
+                      text: "worth more than a thousand gold. So if you get it, yeah. such as Ren Shen, Tang Gui, Er Jiao, those."),
+                .init(start: 215, end: 241,
+                      text: "And goes to the Ming Dynasty, then there's one person is called Wang Ken Tang"),
+            ],
+            for: plan[4], isLast: false, after: first.segments,
+        )
+        #expect(second.replacingLastSegment == nil)
+        let texts = (first.segments + second.segments).map(\.text)
+        #expect(texts.count == 3)
+        #expect(texts[0].contains("Qianjin Fang"))
+        #expect(texts[1].contains("Ren Shen"))
+        #expect(texts[1].contains("Tang Gui"))
+        #expect(texts[1].lowercased().hasPrefix("such as") || texts[1].contains("such as Ren Shen"))
+        #expect(!texts[1].lowercased().contains("worth more than a thousand gold"))
+        #expect(texts[2].contains("Wang Ken Tang"))
+        #expect(second.segments[0].start == first.segments[0].end)
+        #expect(second.segments[0].start < second.segments[0].end)
+        #expect(second.segments[1].start >= second.segments[0].end)
+    }
+
+    @Test func `cloud contained phrase times never concatenate into word salad`() {
+        let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
+        let step = CloudCaptionReconciler.commit(
+            raw: [
+                .init(start: 50, end: 80, text: "earliest medical expert on the leprosy"),
+                .init(start: 50, end: 70, text: "Do you remember the king of herbs"),
+            ],
+            for: plan[1], isLast: false, after: [],
+        )
+        #expect(step.segments.count == 1)
+        #expect(step.segments[0].text == "earliest medical expert on the leprosy")
+        #expect(!step.segments[0].text.contains("Do you remember"))
     }
 
     @Test func `WAV uploads are bounded mono PCM with no time compression`() throws {
