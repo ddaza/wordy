@@ -22,8 +22,20 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
     /// Provisional default until the Milestone 1 benchmark settles the policy.
     public static let `default` = try! ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
 
+    /// OpenRouter Whisper emits coarse ~30 s phrases. A 3 s overlap (local default)
+    /// leaves a dead zone at each owned boundary: the previous section drops
+    /// phrases that start on the boundary, and the next section's decoder grid
+    /// often resumes mid-sentence. Keep the decoded window ≤ 80 s so 16-bit PCM
+    /// WAV uploads stay under the 3 MiB adapter limit (80 × 16 kHz × 2 B).
+    public static let cloudDefault = try! ChunkPolicy(chunkSeconds: 50, overlapSeconds: 15)
+
     public var label: String {
         "\(Int(chunkSeconds))s+\(Int(overlapSeconds))s"
+    }
+
+    /// Peak decoded seconds for a middle section, including both overlaps.
+    public var maximumAudioSeconds: TimeInterval {
+        chunkSeconds + 2 * overlapSeconds
     }
 }
 

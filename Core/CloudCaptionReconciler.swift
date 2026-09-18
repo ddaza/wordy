@@ -3,6 +3,11 @@ import Foundation
 /// Cloud phrase times can overlap even when their text is distinct. Only a
 /// matching suffix/prefix at an upload boundary proves duplicated text; time
 /// overlap alone must never be converted into a number of words to delete.
+///
+/// Attribution matches local inference: a section commits every phrase that
+/// *starts* before its owned end. Trailing upload context must be long enough
+/// for provider phrase grids (~30 s for Whisper) or boundary words are lost —
+/// see `ChunkPolicy.cloudDefault`.
 public enum CloudCaptionReconciler {
     public struct Result: Sendable {
         public let replacingLastSegment: TranscriptSegment?
@@ -18,7 +23,9 @@ public enum CloudCaptionReconciler {
         var boundaryWords = committed.suffix(32)
             .filter { $0.end > chunk.audioStart }
             .flatMap { ChunkReconciler.normalizedWords($0.text) }
-        boundaryWords = Array(boundaryWords.suffix(256))
+        // Cap like the local reconciler so a long re-hearing cannot erase a
+        // whole phrase through an accidental long prefix match.
+        boundaryWords = Array(boundaryWords.suffix(ChunkReconciler.maximumBoundaryWords * 4))
         var atBoundary = !boundaryWords.isEmpty
 
         for candidate in raw {
@@ -32,7 +39,7 @@ public enum CloudCaptionReconciler {
             }
             if atBoundary, candidate.start < boundaryEnd {
                 let incoming = ChunkReconciler.normalizedWords(text)
-                let limit = min(boundaryWords.count, incoming.count)
+                let limit = min(ChunkReconciler.maximumBoundaryWords, boundaryWords.count, incoming.count)
                 var duplicateCount = 0
                 if limit > 0 {
                     for length in stride(from: limit, through: 1, by: -1) {
@@ -68,7 +75,8 @@ public enum CloudCaptionReconciler {
                     // Contained/equal-start intervals cannot form two ordered
                     // rows. Keep both texts in their shared provider interval.
                     let merged = TranscriptSegment(id: previous.id, start: previous.start,
-                                                   end: max(previous.end, candidate.end), text: previous.text + " " + text)
+                                                   end: max(previous.end, candidate.end),
+                                                   text: previous.text + " " + text)
                     if result.isEmpty {
                         tail = merged
                     } else {

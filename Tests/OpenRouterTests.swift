@@ -41,15 +41,84 @@ struct OpenRouterTests {
     }
 
     @Test func `cloud phrase overlap preserves deliberate repetition`() throws {
-        let chunks = ChunkPlanner.plan(duration: 120, policy: .default)
-        let first = [TranscriptSegment(start: 56, end: 62, text: "Review the important point")]
+        let chunks = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
+        let chunk = chunks[1]
+        let first = [TranscriptSegment(start: chunk.ownedStart - 2, end: chunk.ownedStart + 2,
+                                       text: "Review the important point")]
+        let audioStart = chunk.audioStart
+        let relativeStart = (chunk.ownedStart - 1) - audioStart
         let result = try OpenRouterTranscript.decode(
-            Data(#"{"text":"important point. Again again","segments":[{"start":3,"end":7,"text":"important point. Again"},{"start":9,"end":10,"text":"again"}]}"#.utf8),
-            audioStart: 57, audioDuration: 63, sourceDuration: 120,
+            Data("""
+            {"text":"important point. Again again","segments":[
+              {"start":\(relativeStart),"end":\(relativeStart + 4),"text":"important point. Again"},
+              {"start":\(relativeStart + 6),"end":\(relativeStart + 7),"text":"again"}
+            ]}
+            """.utf8),
+            audioStart: audioStart, audioDuration: chunk.audioDuration, sourceDuration: 120,
         )
-        let committed = ChunkReconciler.commit(raw: result.segments, for: chunks[1], isLast: true, after: first)
-        #expect(committed.map(\.text) == ["Again", "again"])
-        #expect(committed.map(\.start) == [62, 66])
+        let committed = CloudCaptionReconciler.commit(raw: result.segments, for: chunk, isLast: false, after: first)
+        #expect(committed.segments.map(\.text) == ["Again", "again"])
+    }
+
+    @Test func `cloud policy keeps upload windows inside the PCM size cap`() {
+        let policy = ChunkPolicy.cloudDefault
+        #expect(policy.maximumAudioSeconds <= 80)
+        let plan = ChunkPlanner.plan(duration: 360, policy: policy)
+        #expect(plan.allSatisfy { $0.audioDuration <= 80 })
+        #expect(plan.count > 6) // denser than legacy 60s+3s on a 6-minute clip
+        #expect(OpenRouterModel.whisperLargeV3.configuration.policy == policy)
+    }
+
+    @Test func `cloud reconciler keeps boundary phrases that start on an owned edge`() throws {
+        // Simulates Whisper's ~30 s grid around a 60 s seam with only 3 s of
+        // context: section 0 drops start==60, section 1 resumes at abs 87 and
+        // would lose the intervening titles without enough leading overlap.
+        let tight = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
+        let tightPlan = ChunkPlanner.plan(duration: 180, policy: tight)
+        let dropped = CloudCaptionReconciler.commit(
+            raw: [.init(start: 60, end: 90, text: "Zhang Zhongjing Shang Han Lun Articaria")],
+            for: tightPlan[0], isLast: false, after: [],
+        )
+        #expect(dropped.segments.isEmpty)
+
+        let cloudPlan = ChunkPlanner.plan(duration: 180, policy: .cloudDefault)
+        // With 15 s lead-in, the same absolute phrase starts inside section 1's
+        // owned range after section 0's owned end (50), and is committed there.
+        var committed: [TranscriptSegment] = []
+        for (index, chunk) in cloudPlan.enumerated() {
+            let raw: [RawSegment] = [
+                .init(start: 30, end: 50, text: "Earlier context about skin disease"),
+                .init(start: 60, end: 90, text: "Zhang Zhongjing Shang Han Lun Articaria"),
+                .init(start: 90, end: 120, text: "Cao Yuanfang continues the lecture"),
+            ]
+            let step = CloudCaptionReconciler.commit(raw: raw, for: chunk, isLast: index == cloudPlan.count - 1,
+                                                     after: committed)
+            if let replacement = step.replacingLastSegment {
+                committed[committed.count - 1] = replacement
+            }
+            committed.append(contentsOf: step.segments)
+        }
+        let text = committed.map(\.text).joined(separator: " ")
+        #expect(text.contains("Zhang Zhongjing"))
+        #expect(text.contains("Shang Han Lun"))
+        #expect(text.contains("Articaria"))
+        #expect(text.contains("Cao Yuanfang"))
+    }
+
+    @Test func `cloud boundary dedupe never strips more than the local word cap`() {
+        let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
+        let previous = TranscriptSegment(
+            start: 40, end: 55,
+            text: "one two three four five six seven eight nine ten eleven twelve",
+        )
+        let raw = [RawSegment(
+            start: 50, end: 70,
+            text: "one two three four five six seven eight nine ten eleven twelve and new titles Zhang Zhongjing",
+        )]
+        let step = CloudCaptionReconciler.commit(raw: raw, for: plan[1], isLast: false, after: [previous])
+        let text = step.segments.map(\.text).joined(separator: " ")
+        #expect(text.contains("Zhang Zhongjing"))
+        #expect(text.contains("new titles"))
     }
 
     @Test func `WAV uploads are bounded mono PCM with no time compression`() throws {
@@ -60,7 +129,7 @@ struct OpenRouterTests {
         #expect(throws: OpenRouterError.tooLarge) { try CloudAudioEncoding.wav([]) }
         #expect(throws: OpenRouterError.tooLarge) { try CloudAudioEncoding.wav([Float](repeating: 0, count: 80 * 16000 + 1)) }
         let plan = ChunkPlanner.plan(duration: 14400, policy: OpenRouterModel.whisperLargeV3.configuration.policy)
-        #expect(plan.allSatisfy { $0.audioDuration < 80 })
+        #expect(plan.allSatisfy { $0.audioDuration < 80 || abs($0.audioDuration - 80) < 0.001 })
     }
 
     @Test func `cloud generations cannot be mistaken for local checkpoints`() {

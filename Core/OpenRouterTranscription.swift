@@ -18,7 +18,7 @@ public enum OpenRouterModel: String, CaseIterable, Codable, Sendable, Identifiab
 
     public var configuration: TranscriptionConfiguration {
         .init(engineName: "OpenRouter", engineVersion: "stt-v1-wordy-1", modelID: rawValue,
-              language: "auto", policy: .default)
+              language: "auto", policy: .cloudDefault)
     }
 }
 
