@@ -46,7 +46,7 @@ struct SettingsView: View {
             }
             Section("Connections") {
                 LabeledContent("Google Drive", value: "Not available in this build")
-                Text("Transcription always runs on this Mac. Recordings and transcripts are never uploaded.")
+                Text("Local transcription is the default. Advanced Mode (OpenRouter BYOK) is planned for older Macs and will require an explicit choice before any upload.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

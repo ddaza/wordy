@@ -1,6 +1,6 @@
 # Wordy
 
-A native macOS lecture player and transcription app, targeting macOS 14+ on Intel and Apple Silicon. Transcription runs entirely on your Mac; recordings and transcripts are never uploaded. Open source under the [MIT License](LICENSE).
+A native macOS lecture player and transcription app, targeting macOS 14+ on Intel and Apple Silicon. Transcription runs on your Mac by default. Optional Advanced Mode (OpenRouter BYOK) is on the roadmap for older Macs and is never enabled without explicit consent. Open source under the [MIT License](LICENSE).
 
 ## Start development in Xcode
 
@@ -120,5 +120,7 @@ Xcode synchronized folders include new source files automatically within their t
 ## Next implementation slice
 
 Milestone 2: GRDB schema and migrations replacing the JSON checkpoint and bookmark documents, durable job coordinator and cache, FTS5 search, exports, playback-state restore, and the remaining recovery tests. Confirm the engine recommendation on physical M1 and Intel hardware first.
+
+Milestone 4 (roadmap, next after Milestone 2 for older Macs): Advanced Mode with OpenRouter BYOK cloud transcription — off by default, Keychain-stored user API key, per-job consent, provisional model `openai/whisper-large-v3`. See `PLAN.md` §9.
 
 See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, [docs/inference.md](docs/inference.md) for the engine, worker protocol, checkpoint design, and benchmark procedure, [docs/scaffold.md](docs/scaffold.md) for the original scaffold record, and [docs/development-assets.md](docs/development-assets.md) for local fixtures.

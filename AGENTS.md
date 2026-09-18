@@ -12,9 +12,9 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 
 ## Product requirements to preserve
 
-- Wordy is a desktop-only application. All transcription runs on the user's Mac; there is no cloud transcription mode, fallback, or backend, and none should be added.
-- Never upload lecture audio or transcripts anywhere. The only network traffic is Google Drive import, pinned model downloads, and signed app updates.
-- Users must not need Terminal, package managers, developer tools, online accounts other than Google Drive, or manual model installation.
+- Wordy is a desktop application with **local transcription as the default**. There is no Wordy-operated transcription backend. Optional **Advanced Mode** (OpenRouter BYOK) may upload audio only after the user enables it, stores their own API key, and explicitly consents per job — never as an automatic fallback.
+- Do not upload lecture audio or transcripts except through that explicit Advanced Mode path (or user-initiated export). Other network traffic is Google Drive import, pinned model downloads, and signed app updates.
+- Users must not need Terminal, package managers, developer tools, or manual model installation. An OpenRouter account is required only for Advanced Mode.
 - Support native `arm64` and `x86_64` execution. The provisional minimum is macOS 14; do not raise it or remove Intel support incidentally.
 - Preserve responsive playback, scrolling, search, and navigation during inference.
 - Preserve original audio timing through decoding, silence handling, chunking, and caption generation.
@@ -49,11 +49,12 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Validate bookmark times against the source duration and seek through the existing playback controller.
 - Generate text exports locally from ordered committed segments. Use a native save panel and an atomic destination replacement so failed exports do not leave truncated files.
 
-## Google Drive and privacy boundaries
+## Google Drive, Advanced Mode, and privacy boundaries
 
 - Use a supported external-browser OAuth flow with PKCE/state validation and Keychain token storage.
 - `drive.file` is for explicitly authorized files. Do not assume selecting a folder grants access to every child.
 - Broad browsing/watched folders require a deliberate permission and verification design.
+- Advanced Mode: store the OpenRouter API key in Keychain; require per-job consent before upload; normalize cloud segments into the same timestamped schema as local jobs; do not log keys, audio, or transcript contents.
 - Do not log audio, transcript contents, tokens, or signed download URLs. Use redacted identifiers and timing metrics for diagnostics.
 - Do not add telemetry or crash reporting that could carry transcript text or recording identifiers.
 - Do not commit private lecture fixtures, credentials, model weights, or generated artifacts.

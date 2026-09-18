@@ -1,12 +1,12 @@
 # Wordy implementation plan
 
-Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs, and the in-app recovery walkthrough, remain open before Milestone 1 can be closed. See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence and Google Drive are not implemented yet. Cloud transcription is out of scope: Wordy is a desktop-only application and all inference runs on the user's Mac.
+Status: Milestone 1 vertical slice implemented on the development machine (pinned whisper.cpp engine, universal build, XPC inference protocol, model manager, checkpointed incremental transcription, benchmark harness). Full-lecture benchmarks exist for Apple M4 Max only; physical M1 and Intel runs remain open before Milestone 1 can be closed (an Intel field run with `whisper-base` measured ~2.9× real time, motivating the Advanced Mode roadmap item below). See `README.md`, `docs/inference.md`, and `docs/benchmarks/`. Durable database persistence and Google Drive are not implemented yet. **Next roadmap feature after the local listening workflow:** optional Advanced Mode with Bring-Your-Own-Key (BYOK) cloud transcription via OpenRouter — local remains the default.
 
 ## 1. Product objective
 
 Build a native macOS application that connects to Google Drive, imports lecture recordings, transcribes them, and lets users listen while reading synchronized captions and a searchable transcript. Recordings of two hours or longer are a normal workload.
 
-The audience is nontechnical. Installation, Google sign-in, model downloads, transcription, recovery, and updates must work through the graphical interface. Users must not need Terminal, Homebrew, Python, developer tools, or any online transcription account.
+The audience is nontechnical. Installation, Google sign-in, model downloads, local transcription, recovery, and updates must work through the graphical interface. Users must not need Terminal, Homebrew, Python, or developer tools. An OpenRouter account and API key are required only if the user deliberately enables Advanced Mode cloud transcription.
 
 Performance is a primary product requirement: transcription must not make playback, scrolling, searching, or navigation sluggish.
 
@@ -21,7 +21,7 @@ Performance is a primary product requirement: transcription must not make playba
 - Bookmarks scoped to the currently open recording and persisted by that recording's SHA-256 content identity.
 - Export the currently open recording's transcript as a UTF-8 text file.
 - Reliable handling of lectures lasting two hours or more.
-- All transcription runs locally on the user's Mac. Lecture audio and transcripts are never sent to a transcription service; the only network traffic is Google Drive import and model/app-update downloads.
+- Local transcription is the default. Lecture audio and transcripts leave the Mac only when the user enables Advanced Mode, supplies their own OpenRouter API key, and explicitly starts a cloud job for that recording (or batch). There is no Wordy-operated backend, no automatic cloud fallback when local is slow, and no silent upload.
 
 ### Working assumptions
 
@@ -45,8 +45,9 @@ Performance is a primary product requirement: transcription must not make playba
 | Local inference | Pinned `whisper.cpp` release | Shared engine across Intel and Apple Silicon; Metal on supported Apple Silicon and a tested CPU path for Intel. |
 | Process isolation | Bundled XPC transcription service | Keep model lifetime and inference failures outside the UI process. |
 | Database | SQLite with GRDB and FTS5 | Transactions, migrations, indexed search, and durable job state. |
-| Networking | `URLSession`, Google Drive API v3 | Typed API integration and downloads to disk. |
-| Authentication | Maintained native OAuth library, PKCE, Keychain | Browser-based Google authorization; credentials stay out of ordinary app storage and logs. Validate the exact client and redirect configuration in the integration spike. |
+| Networking | `URLSession`, Google Drive API v3, OpenRouter STT (Advanced Mode only) | Drive import/downloads; optional BYOK transcription uploads when Advanced Mode is on. |
+| Authentication | Maintained native OAuth library, PKCE, Keychain | Browser-based Google authorization; OpenRouter API key in Keychain when Advanced Mode is enabled. Credentials stay out of ordinary app storage and logs. |
+| Advanced Mode STT | OpenRouter `/api/v1/audio/transcriptions` | User-owned key; provisional default model `openai/whisper-large-v3` (see §9 evidence). No Wordy billing or proxy backend. |
 | App updates | Sparkle 2 | In-app updates for direct distribution. |
 | Build | Xcode, Swift Package Manager, reproducible C/C++ build | Universal app and worker with pinned dependencies. |
 | Distribution | Developer ID signing, hardened runtime, notarized DMG | Familiar installation without command-line setup. |
@@ -63,7 +64,8 @@ The current baseline is `whisper.cpp`, not a claim that one model is fastest on 
 2. Offer Google Drive connection and local file import.
 3. Open Google's supported authorization flow and return to the app after sign-in.
 4. Offer the recommended local speech model with download size and progress. Verify its integrity before marking it ready.
-5. Let users select recordings and start transcription without configuring technical settings.
+5. Let users select recordings and start local transcription without configuring technical settings.
+6. Keep Advanced Mode (OpenRouter BYOK) off and undiscoverable in the primary first-run path; document it under Settings for users who need faster or higher-quality cloud models on older Macs.
 
 ### Main window
 
@@ -101,9 +103,12 @@ flowchart TD
     Drive[Google Drive client] --> Cache[Audio cache on disk]
     Jobs --> Drive
     Jobs --> Local[XPC local transcription worker]
+    Jobs --> Cloud[Optional OpenRouter BYOK STT]
     Cache --> Playback
     Cache --> Local
+    Cache --> Cloud
     Local --> Results[Validated timestamped results]
+    Cloud --> Results
     Results --> DB[(SQLite transcripts and job checkpoints)]
     Search --> DB
     DB --> UI
@@ -112,18 +117,18 @@ flowchart TD
 ### Concurrency rules
 
 - Main-actor work is limited to UI state and presentation.
-- Decoding, inference, database queries, downloads, and indexing run outside the main actor.
+- Decoding, inference, database queries, downloads, indexing, and Advanced Mode network uploads run outside the main actor.
 - Run blocking C/C++ inference on a dedicated execution context in the XPC process; merely wrapping it in an async function does not make it nonblocking.
-- Begin with one active local inference job. Bound downloads separately and tune using measurements.
+- Begin with one active local inference job. Bound downloads and cloud chunk uploads separately and tune using measurements.
 - Give playback and interactive operations priority. Account for thermal pressure and memory pressure before increasing throughput.
 - Keep SQLite writes coordinated by the application. The worker returns bounded result batches and does not independently mutate the app database.
 - Pass validated file references and bounded messages across XPC rather than entire recordings or model data. If sandboxing is enabled, validate file access and entitlements in the first milestone.
 
-### Engine interface
+### Engine / provider interface
 
-The inference engine sits behind a common transcription interface with capabilities, model/version identity, language, progress, cancellation, and timestamped results, so a different on-device engine can be evaluated without changing the job coordinator or UI.
+Local whisper.cpp and Advanced Mode OpenRouter adapters share a common transcription interface with capabilities, model/version identity, language, progress, cancellation, and timestamped results. Do not force cloud job lifecycle semantics into local chunk semantics, or local XPC semantics into HTTP chunk uploads.
 
-Normalize results into absolute source-audio times. Include start/end time, text, sequence, finalization status, and optional word timings. Engine confidence values are optional and must not be presented as calibrated accuracy scores.
+Normalize results into absolute source-audio times. Include start/end time, text, sequence, finalization status, and optional word timings. Provider confidence values are optional and must not be presented as calibrated accuracy scores.
 
 ## 5. Long-recording pipeline
 
@@ -226,14 +231,49 @@ If included, implement initial folder enumeration followed by persisted change t
 
 Start Google verification early if broad access is required. Restricted-scope verification and any applicable assessment depend on the final data handling; confirm current requirements before release.
 
-## 9. Local-only processing boundary
+## 9. Local default and optional Advanced Mode (OpenRouter BYOK)
 
-Wordy is a desktop application with no backend. Every transcription runs in the bundled XPC worker on the user's Mac; there is no cloud transcription mode, fallback, or hosted service, and none is planned.
+Wordy remains a desktop application with **no Wordy-operated transcription backend**. Local whisper.cpp in the bundled XPC worker is the default path for every user.
 
-- The application makes network requests only for Google Drive import (Milestone 3), speech model downloads from the pinned catalog, and signed app updates (Milestone 5).
-- Lecture audio, transcripts, search indexes, bookmarks, and listening state never leave the machine except through user-initiated exports.
+### Default (local)
+
+- Network traffic is limited to Google Drive import (Milestone 3), pinned speech-model downloads, and signed app updates (Milestone 5), unless Advanced Mode is enabled and the user starts a cloud job.
+- Lecture audio, transcripts, search indexes, bookmarks, and listening state stay on the Mac except for user-initiated exports and explicit Advanced Mode uploads.
 - Do not add telemetry or crash reporting that could carry transcript text or recording identifiers. Diagnostics use redacted identifiers and timing metrics.
-- If a faster engine is ever wanted, evaluate an on-device alternative behind the existing engine interface rather than a remote service.
+- Prefer on-device improvements (language lock, larger/quantized models, future engine swaps behind the same interface) before suggesting cloud.
+
+### Advanced Mode (roadmap — next feature after Milestone 2 local workflow)
+
+**Why:** Physical Intel Macs are in scope. A field run with local `whisper-base` measured about **2.9× real time** (a two-hour lecture ≈ six hours of CPU). Local models also struggle on accented English lectures that insert Latin/pinyin technical names. Advanced Mode gives those users a fast, higher-quality option without Wordy hosting billing or secrets.
+
+**Shape:**
+
+- Hidden behind an **Advanced Mode** Settings toggle. Not part of first-run onboarding; never auto-enabled when local is slow or fails.
+- **BYOK only:** user pastes an OpenRouter API key; store it in Keychain; Wordy never proxies provider secrets or charges for inference.
+- **Per-job consent** before upload: which recording, which model, that audio leaves the Mac, and that usage is billed to the user's OpenRouter account.
+- Upload prepared audio chunks (respect OpenRouter ~25 MB multipart / ~60 s provider timeout guidance); map `verbose_json` segments into the same absolute-time schema and checkpoint rules as local jobs.
+- Cancellation must be honest: stopping the UI may not cancel an accepted provider request or its charge.
+- Prefer models that return segment timestamps usable for captions; synthesize timings only with a clear quality caveat.
+
+**Provisional model choice (opt-in compare, 2026-09-18):** on a consented six-minute lecture excerpt that mixes English with Latin/pinyin course titles, OpenRouter candidates were compared privately (artifacts stay under git-ignored `assets/`, not in docs). Summary for product planning:
+
+| Model | Relative quality on that excerpt | Measured cost for 6 min | Rough 2 h extrapolation |
+| --- | --- | --- | --- |
+| Local `whisper-base` (`language=auto`) | Poor on the pinyin block (language flip into CJK) | $0 | $0 |
+| `deepgram/nova-3` | Clean English; weaker proper-noun / pinyin titles | ~$0.026 | ~$0.52 |
+| `deepgram/nova-3` + `keyterm` list | **Identical** to plain Nova-3 via OpenRouter (keyterms not effective) | same | same |
+| `openai/whisper-large-v3` | **Best** title/pinyin recall among tested | ~$0.0027 | ~$0.05 |
+| `openai/whisper-large-v3-turbo` | Good; more spelling drift | ~$0.0012 | ~$0.02 |
+| `openai/gpt-4o-mini-transcribe` | Strong prose; weaker caption timestamps in this spike | ~$0.008 | ~$0.16 |
+
+**Provisional Advanced Mode default:** `openai/whisper-large-v3`. Keep Deepgram as an optional selectable model only after re-validating; do not depend on Deepgram `keyterm` through OpenRouter until the platform forwards it. A course glossary / post-pass replace remains useful even with Large V3.
+
+**Out of scope for this milestone:** Wordy-managed accounts, allowances, Deepgram-direct (non-OpenRouter) billing, and automatic hybrid routing.
+
+### Local quality follow-ups (still valuable without Advanced Mode)
+
+- Expose language lock (`auto` / `en` / …) so multilingual `auto` does not flip scripts mid-lecture.
+- Revisit Intel default model (`base` vs `small-q5_1` / `small`) once Intel RTF and WER are recorded under `docs/benchmarks/`.
 
 ## 10. Performance and quality acceptance
 
@@ -273,7 +313,8 @@ Progress (2026-09-13, see `docs/inference.md` and `docs/benchmarks/2026-09-13-m4
 
 - Done: Xcode app, import, player, XPC worker running pinned whisper.cpp v1.9.4; universal Release build of app, worker, and engine verified (arm64 Metal, x86_64 AVX2 baseline, macOS 14.0 minimum, valid nested signature); full 1:39:46 lecture benchmarked for `base`, `small`, `small-q5_1` × 30/60/300 s chunk policies on Apple M4 Max; incremental results, pause/resume, and SHA-256-keyed checkpoints implemented with tests for ordering, invalidation, and boundary reconciliation; model download with pinned SHA-256 verification.
 - Provisional recommendation: 60 s chunks with 3 s overlap; `small` on Apple Silicon, `base` on Intel; evaluate `small-q5_1` after a WER comparison.
-- Open: physical M1 (8 GB) and Intel measurements; in-app worker-kill and quit/relaunch walkthrough with concurrent playback (the app records main-thread delay percentiles for this); WER on a reference excerpt.
+- Field note (Intel): `whisper-base` ≈ **2.9×** real time on one supported older Mac — recorded to motivate Advanced Mode (Milestone 4); still needs a full matrix under `docs/benchmarks/`.
+- Open: physical M1 (8 GB) and formal Intel benchmark matrix; in-app worker-kill and quit/relaunch walkthrough with concurrent playback (the app records main-thread delay percentiles for this); WER on a reference excerpt.
 
 ### Milestone 2: complete local listening workflow
 
@@ -295,27 +336,40 @@ Progress: per-recording bookmarks are implemented as SHA-256-keyed JSON (same pa
 
 Exit: a fresh user can connect Drive and complete the same listening workflow through the GUI.
 
-### Milestone 4: release hardening
+### Milestone 4: Advanced Mode — OpenRouter BYOK
+
+Priority: **next after Milestone 2** for older Intel Macs and hard accented / domain-vocabulary lectures. May ship before or after Drive depending on release sequencing; do not block Milestone 2 exit criteria.
+
+- Add Settings: Advanced Mode toggle (off by default), OpenRouter API key field (Keychain), model picker defaulting to `openai/whisper-large-v3`.
+- Implement an OpenRouter STT provider adapter: chunk upload, `verbose_json` segment normalization, progress, cancel semantics, error mapping, and digest-keyed checkpoints compatible with local jobs.
+- Require explicit per-job consent copy before any audio upload; never auto-fallback from local.
+- Test invalid/revoked keys, partial failure mid-lecture, network loss, duplicate submission avoidance, and that local mode remains unchanged when Advanced Mode is off.
+- Re-check OpenRouter pricing and Deepgram keyterm forwarding before locking the selectable model list.
+
+Exit: a user on an older Mac can enable Advanced Mode, paste their own key, and obtain a caption-compatible transcript for a long lecture without Wordy operating a backend; default users never upload audio.
+
+### Milestone 5: release hardening
 
 - Complete accessibility, onboarding, storage controls, actionable errors, and updates.
 - Profile against the performance corpus and fix measured bottlenecks.
 - Add reproducible release automation, dependency/license inventory, and model attribution.
 - Sign all nested components, notarize/staple the distribution, and validate update signatures.
-- Test clean installation, first-run model download, Google sign-in, update, and migration on both architectures without developer tooling installed.
+- Test clean installation, first-run model download, Google sign-in, update, and migration on both architectures without developer tooling installed. Advanced Mode remains optional and off by default in that matrix.
 
 Exit: a signed release candidate meets the agreed functional and performance gates on the hardware matrix. Public distribution remains a distinct release action.
 
 ## 12. Verification strategy
 
 - Unit/integration tests for timestamp mapping, overlap reconciliation, phrase boundaries, safe search queries, source-version invalidation, migrations, atomic checkpoint/index commits, bookmark partitioning by SHA-256, and text export ordering/completeness markers.
-- Engine contract tests with recorded fixtures for result normalization across engine/model versions.
-- Failure injection for worker crash, application exit, corrupt download, disk exhaustion, expired credentials, and network loss.
+- Engine/provider contract tests with recorded fixtures for local and OpenRouter result normalization; use deliberate opt-in live calls only with authorized audio and a developer-owned key.
+- Failure injection for worker crash, application exit, corrupt download, disk exhaustion, expired credentials, network loss, and Advanced Mode auth/quota failures.
 - UI tests for onboarding, playback controls, search navigation, and recovery messages; manual accessibility checks where automation is insufficient.
 - UI tests must switch between recordings and prove that only the open recording's bookmarks appear, that bookmark activation seeks correctly, and that export always uses the open recording's transcript.
+- UI/consent tests must prove cloud jobs cannot start without Advanced Mode, a stored key, and explicit per-job confirmation.
 - Performance checks using Instruments, signposts, and repeatable release-build benchmarks.
 - Release checks for architecture slices, linkage, signatures, notarization, model assets, and update installation.
 
-Do not add tests that merely repeat trivial presentation implementation. Protect the long-file, timing, recovery, local-only privacy, and distribution behaviors that define the product.
+Do not add tests that merely repeat trivial presentation implementation. Protect the long-file, timing, recovery, default-local privacy, and distribution behaviors that define the product.
 
 ## 13. Repository shape after scaffolding
 
@@ -340,9 +394,11 @@ This is a proposed layout, not a claim that these files or targets already exist
 - Exact supported Intel model/OS matrix and deployment target.
 - Priority languages and representative recordings.
 - File selection versus automatic watched-folder discovery for the first release.
-- Default model/quantization and transcription-speed gates for each hardware tier (M4 Max evidence recorded; M1 and Intel outstanding).
+- Default model/quantization and transcription-speed gates for each hardware tier (M4 Max evidence recorded; M1 outstanding; Intel field RTF ~2.9× on `base` recorded informally — capture a full `docs/benchmarks/` matrix).
 - Chunk boundary reconciliation: start-based attribution with word-match or time-proportional trimming was chosen after midpoint attribution dropped straddling sentences; revisit if word-level timestamps are validated.
 - Word highlighting quality threshold and whether alignment work is worthwhile.
+- Whether Advanced Mode ships before Google Drive for the first public build aimed at older Macs.
+- Which OpenRouter STT models appear in the Advanced Mode picker beyond the provisional `openai/whisper-large-v3` default.
 - Whether direct distribution alone is sufficient; Mac App Store distribution has a separate packaging/update path.
 
 These do not block the local prototype. Record decisions and benchmark evidence as milestones progress.
@@ -360,5 +416,7 @@ These do not block the local prototype. Record decisions and benchmark evidence 
 - [Google Drive downloads](https://developers.google.com/workspace/drive/api/guides/manage-downloads)
 - [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 - [Sparkle sandbox integration](https://sparkle-project.org/documentation/sandboxing/)
+- [OpenRouter speech-to-text](https://openrouter.ai/docs/guides/overview/multimodal/stt)
+- [OpenRouter transcription API](https://openrouter.ai/docs/api/api-reference/stt/create-transcription)
 
-Recheck dependency versions, Google permission requirements, and Apple distribution requirements when implementing the corresponding milestone.
+Recheck dependency versions, Google permission requirements, OpenRouter STT pricing/limits, and Apple distribution requirements when implementing the corresponding milestone.
