@@ -104,8 +104,7 @@ enum Bench {
                 language: options.language, threads: threads, useGPU: options.useGPU,
             )
             let result = try await session.transcribe(request)
-            let isLast = chunk.index == plan.count - 1
-            let segments = ChunkReconciler.commit(raw: result.segments, for: chunk, isLast: isLast, after: committed)
+            let segments = ChunkReconciler.commit(raw: result.segments, for: chunk, after: committed)
             committed += segments
             _ = try TranscriptTimeline(segments: committed)
             modelLoad += result.metrics.modelLoadMilliseconds

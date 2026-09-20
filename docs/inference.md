@@ -59,7 +59,7 @@ Non-speech token suppression (`suppress_nst`) and blank suppression are on; brac
 
 `ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s.
 
-`ChunkReconciler.commit` attributes a raw segment to the chunk that heard it *start*, then stitches a re-hear by dropping at most the overlap word budget (about 3–4 words at 3 s). Checkpoints store per-section engine `raw` beside committed captions. The current rule, isolation method, and rejected alternatives (midpoint attribution, time-proportional deletion, a separate capture script, 50 s + 15 s cloud windows) are in `docs/caption-pipeline.md`.
+`ChunkReconciler.commit` offers every well-formed raw interval to the stitch, then drops at most the overlap word budget (about 3–4 words at 3 s) when a later section re-hears already-committed time. Checkpoints store per-section engine `raw` beside committed captions. The current rule, isolation method, and rejected alternatives (midpoint attribution, owned-end start filter, time-proportional deletion, a separate capture script, 50 s + 15 s cloud windows) are in `docs/caption-pipeline.md`.
 
 Word-level timing is not requested yet; captions remain phrase-level. Carrying decoder context between chunks (`initial_prompt`) is not enabled.
 

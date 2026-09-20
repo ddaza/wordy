@@ -80,27 +80,71 @@ public struct CaptionJobFixture: Codable, Equatable, Sendable {
     }
 }
 
+/// Runs the real planner, then offers each section's engine `raw` to the stitch.
+public enum CaptionJobRecorder {
+    public static func record(name: String, duration: TimeInterval, policy: ChunkPolicy,
+                              gold: [CaptionJobFixture.TimedText] = [],
+                              transcribe: (AudioChunk) async throws -> [RawSegment]) async throws -> CaptionJobFixture
+    {
+        let plan = ChunkPlanner.plan(duration: duration, policy: policy)
+        var chunks: [CaptionJobFixture.Chunk] = []
+        for chunk in plan {
+            let raw = try await transcribe(chunk)
+            chunks.append(CaptionJobFixture.Chunk(
+                index: chunk.index,
+                raw: raw.map { CaptionJobFixture.TimedText(start: $0.start, end: $0.end, text: $0.text) },
+            ))
+        }
+        return CaptionJobFixture(name: name, duration: duration, policy: policy, chunks: chunks, expected: gold)
+    }
+
+    public static func recordOpenRouter(name: String, audioURL: URL, duration: TimeInterval, policy: ChunkPolicy,
+                                        gold: [CaptionJobFixture.TimedText] = [], model: OpenRouterModel,
+                                        apiKey: String) async throws -> CaptionJobFixture
+    {
+        try await record(name: name, duration: duration, policy: policy, gold: gold) { chunk in
+            try await OpenRouterSectionClient.transcribe(
+                audioURL: audioURL, chunk: chunk, sourceDuration: duration, model: model, apiKey: apiKey,
+            ).segments
+        }
+    }
+
+    public static func encode(_ fixture: CaptionJobFixture) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(fixture)
+    }
+}
+
+public struct CaptionGoldTranscript: Codable, Equatable, Sendable {
+    public var duration: TimeInterval
+    public var segments: [CaptionJobFixture.TimedText]
+
+    public init(duration: TimeInterval, segments: [CaptionJobFixture.TimedText]) {
+        self.duration = duration
+        self.segments = segments
+    }
+
+    public var captions: [TranscriptSegment] {
+        segments.map(\.caption)
+    }
+}
+
 public enum CaptionJobFixtureError: Error, Equatable {
     case rawMissing
-    case fixtureDirectoryMissing
 }
 
 public extension CaptionJobFixture {
-    /// Words the owning chunk heard that the stitch dropped, expected words
+    /// Unique words some section heard that the stitch dropped, expected words
     /// that never appear, and committed words that were not expected.
-    func isolation() -> (ownedDropped: [String], expectedMissing: [String], unexpected: [String]) {
+    func isolation() -> (heardDropped: [String], expectedMissing: [String], unexpected: [String]) {
         let committed = reconcile()
         let committedWords = TranscriptCoverage.words(in: committed)
-        var ownedDropped: [String] = []
-        for (chunk, heard) in zip(plan, rawByChunk) {
-            let owned = heard.filter { $0.start >= chunk.ownedStart && $0.start < chunk.ownedEnd }
-            ownedDropped += TranscriptCoverage.missing(
-                expected: TranscriptCoverage.words(in: owned), actual: committedWords,
-            )
-        }
+        let heard = Set(TranscriptCoverage.words(in: rawByChunk.flatMap(\.self)))
+        let heardDropped = heard.subtracting(Set(committedWords)).sorted()
         let expectedWords = TranscriptCoverage.words(in: expected.map(\.caption))
         let expectedMissing = TranscriptCoverage.missing(expected: expectedWords, actual: committedWords)
         let unexpected = TranscriptCoverage.missing(expected: committedWords, actual: expectedWords)
-        return (ownedDropped, expectedMissing, unexpected)
+        return (heardDropped, expectedMissing, unexpected)
     }
 }

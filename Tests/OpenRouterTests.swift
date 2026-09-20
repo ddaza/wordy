@@ -56,8 +56,8 @@ struct OpenRouterTests {
             """.utf8),
             audioStart: audioStart, audioDuration: chunk.audioDuration, sourceDuration: 120,
         )
-        let committed = CloudCaptionReconciler.commit(raw: result.segments, for: chunk, isLast: false, after: first)
-        #expect(committed.segments.map(\.text) == ["Again", "again"])
+        let committed = ChunkReconciler.commit(raw: result.segments, for: chunk, after: first)
+        #expect(committed.map(\.text) == ["Again", "again"])
     }
 
     @Test func `cloud policy keeps upload windows inside the PCM size cap`() {
@@ -70,33 +70,23 @@ struct OpenRouterTests {
     }
 
     @Test func `cloud reconciler keeps boundary phrases that start on an owned edge`() throws {
-        // Simulates Whisper's ~30 s grid around a 60 s seam with only 3 s of
-        // context: section 0 drops start==60, section 1 resumes at abs 87 and
-        // would lose the intervening titles without enough leading overlap.
         let tight = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
         let tightPlan = ChunkPlanner.plan(duration: 180, policy: tight)
-        let dropped = CloudCaptionReconciler.commit(
+        let kept = ChunkReconciler.commit(
             raw: [.init(start: 60, end: 90, text: "Zhang Zhongjing Shang Han Lun Articaria")],
-            for: tightPlan[0], isLast: false, after: [],
+            for: tightPlan[0], after: [],
         )
-        #expect(dropped.segments.isEmpty)
+        #expect(kept.map(\.text) == ["Zhang Zhongjing Shang Han Lun Articaria"])
 
         let cloudPlan = ChunkPlanner.plan(duration: 180, policy: .cloudDefault)
-        // With 15 s lead-in, the same absolute phrase starts inside section 1's
-        // owned range after section 0's owned end (50), and is committed there.
         var committed: [TranscriptSegment] = []
-        for (index, chunk) in cloudPlan.enumerated() {
+        for chunk in cloudPlan {
             let raw: [RawSegment] = [
                 .init(start: 30, end: 50, text: "Earlier context about skin disease"),
                 .init(start: 60, end: 90, text: "Zhang Zhongjing Shang Han Lun Articaria"),
                 .init(start: 90, end: 120, text: "Cao Yuanfang continues the lecture"),
             ]
-            let step = CloudCaptionReconciler.commit(raw: raw, for: chunk, isLast: index == cloudPlan.count - 1,
-                                                     after: committed)
-            if let replacement = step.replacingLastSegment {
-                committed[committed.count - 1] = replacement
-            }
-            committed.append(contentsOf: step.segments)
+            committed += ChunkReconciler.commit(raw: raw, for: chunk, after: committed)
         }
         let text = committed.map(\.text).joined(separator: " ")
         #expect(text.contains("Zhang Zhongjing"))
@@ -107,46 +97,45 @@ struct OpenRouterTests {
 
     @Test func `cloud overlapping phrases keep new words without crushing the prior caption`() {
         let plan = ChunkPlanner.plan(duration: 360, policy: .cloudDefault)
-        let first = CloudCaptionReconciler.commit(
+        let first = ChunkReconciler.commit(
             raw: [.init(start: 180, end: 210,
                         text: "Qianjin Fang is the formula, worth more than a thousand gold. So if you get it, yeah.")],
-            for: plan[3], isLast: false, after: [],
+            for: plan[3], after: [],
         )
         // Prefix re-hear: next phrase starts with the committed ending, then new herbs.
-        let second = CloudCaptionReconciler.commit(
+        let second = ChunkReconciler.commit(
             raw: [
                 .init(start: 185, end: 215,
                       text: "So if you get it, yeah. such as Ren Shen, Tang Gui, Er Jiao, those."),
                 .init(start: 215, end: 241,
                       text: "And goes to the Ming Dynasty, then there's one person is called Wang Ken Tang"),
             ],
-            for: plan[4], isLast: false, after: first.segments,
+            for: plan[4], after: first,
         )
-        #expect(second.replacingLastSegment == nil)
-        let texts = (first.segments + second.segments).map(\.text)
+        let texts = (first + second).map(\.text)
         #expect(texts.count == 3)
         #expect(texts[0].contains("Qianjin Fang"))
         #expect(texts[1].contains("Ren Shen"))
         #expect(texts[1].contains("Tang Gui"))
         #expect(!texts[1].lowercased().hasPrefix("so if you get it"))
         #expect(texts[2].contains("Wang Ken Tang"))
-        #expect(second.segments[0].start == first.segments[0].end)
-        #expect(second.segments[1].start >= second.segments[0].end)
+        #expect(second[0].start == first[0].end)
+        #expect(second[1].start >= second[0].end)
     }
 
     @Test func `cloud mid sentence re-hear does not erase later clauses via short word matches`() {
         let plan = ChunkPlanner.plan(duration: 360, policy: .cloudDefault)
-        let first = CloudCaptionReconciler.commit(
+        let first = ChunkReconciler.commit(
             raw: [.init(start: 180, end: 210, text: "So if you get it, yeah.")],
-            for: plan[3], isLast: false, after: [],
+            for: plan[3], after: [],
         )
         // "yeah" appears again after new herb names — must not drop Ren Shen.
-        let second = CloudCaptionReconciler.commit(
+        let second = ChunkReconciler.commit(
             raw: [.init(start: 185, end: 220,
                         text: "such as Ren Shen, Tang Gui, Er Jiao, those yeah and goes to the Ming Dynasty")],
-            for: plan[4], isLast: false, after: first.segments,
+            for: plan[4], after: first,
         )
-        let text = second.segments.map(\.text).joined(separator: " ")
+        let text = second.map(\.text).joined(separator: " ")
         #expect(text.contains("Ren Shen"))
         #expect(text.contains("Tang Gui"))
         #expect(text.contains("Ming Dynasty"))
@@ -154,16 +143,16 @@ struct OpenRouterTests {
 
     @Test func `cloud contained phrase times never concatenate into word salad`() {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
-        let step = CloudCaptionReconciler.commit(
+        let step = ChunkReconciler.commit(
             raw: [
                 .init(start: 50, end: 80, text: "earliest medical expert on the leprosy"),
                 .init(start: 50, end: 70, text: "Do you remember the king of herbs"),
             ],
-            for: plan[1], isLast: false, after: [],
+            for: plan[1], after: [],
         )
-        #expect(step.segments.count == 1)
-        #expect(step.segments[0].text == "earliest medical expert on the leprosy")
-        #expect(!step.segments[0].text.contains("Do you remember"))
+        #expect(step.count == 1)
+        #expect(step[0].text == "earliest medical expert on the leprosy")
+        #expect(!step[0].text.contains("Do you remember"))
     }
 
     @Test func `WAV uploads are bounded mono PCM with no time compression`() throws {

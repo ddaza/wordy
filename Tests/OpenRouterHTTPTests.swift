@@ -7,16 +7,17 @@
         private var status = 200
         private var body = Data()
         private var failure = false
+        private var delay: TimeInterval = 0
         private var count = 0
-        func configure(status: Int, body: Data, failure: Bool = false) {
+        func configure(status: Int, body: Data, failure: Bool = false, delay: TimeInterval = 0) {
             lock.lock(); defer { lock.unlock() }
-            self.status = status; self.body = body; self.failure = failure; count = 0
+            self.status = status; self.body = body; self.failure = failure; self.delay = delay; count = 0
         }
 
-        func response() -> (Int, Data, Bool) {
+        func response() -> (Int, Data, Bool, TimeInterval) {
             lock.lock(); defer { lock.unlock() }
             count += 1
-            return (status, body, failure)
+            return (status, body, failure, delay)
         }
 
         var requests: Int {
@@ -36,7 +37,10 @@
         }
 
         override func startLoading() {
-            let (status, body, failure) = Self.fixture.response()
+            let (status, body, failure, delay) = Self.fixture.response()
+            if delay > 0 {
+                Thread.sleep(forTimeInterval: delay)
+            }
             if failure {
                 client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
                 return
@@ -115,6 +119,38 @@
             #expect(body.contains("verbose_json"))
             #expect(body.contains("timestamp_granularities[]"))
             #expect(data.range(of: wav) != nil)
+        }
+
+        @Test func `cancelling an in-flight cloud section stays a pause not a network error`() async throws {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).wav")
+            defer { try? FileManager.default.removeItem(at: url) }
+            try CloudAudioEncoding.wav([Float](repeating: 0, count: 16000)).write(to: url)
+            let provider = OpenRouterProvider {
+                let config = URLSessionConfiguration.ephemeral
+                config.protocolClasses = [StubOpenRouterHTTP.self]
+                return config
+            }
+            StubOpenRouterHTTP.fixture.configure(
+                status: 200,
+                body: Data(#"{"text":"Synthetic","segments":[{"start":0,"end":1,"text":"Synthetic"}]}"#.utf8),
+                delay: 0.4,
+            )
+            let task = Task {
+                try await provider.transcribe(
+                    audioURL: url, chunk: .init(index: 0, ownedStart: 0, ownedEnd: 1, audioStart: 0, audioEnd: 1),
+                    sourceDuration: 1, model: .whisperLargeV3, apiKey: "test-key",
+                )
+            }
+            try await Task.sleep(for: .milliseconds(50))
+            task.cancel()
+            do {
+                _ = try await task.value
+                Issue.record("Expected cancellation")
+            } catch is CancellationError {
+                // Pause must not be rewritten as a failed network request.
+            } catch {
+                Issue.record("Pause reported \(error) instead of cancellation")
+            }
         }
     }
 #endif

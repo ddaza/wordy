@@ -17,17 +17,14 @@ public struct RawSegment: Codable, Equatable, Sendable {
 
 /// Turns raw chunk output into committed, monotonic segments.
 ///
-/// Attribution: a chunk commits every segment that *starts* before its owned
-/// end. A sentence straddling the boundary is therefore committed by the chunk
-/// that heard it with context on both sides (its window extends `overlap`
-/// seconds past the boundary) rather than by the next chunk, which starts
-/// mid-sentence. The next chunk's re-hearing of already-committed time is
-/// trimmed only when a prefix of its text exactly matches a suffix of the
-/// previous caption. The match may be longer than the overlap; at most
-/// `boundaryWordBudget` leading words are dropped (about 3–4 at 3 s, more
-/// at 5–10 s). Time overlap alone never deletes distinct words.
+/// Chunks do not drop phrases. Every well-formed raw interval is offered to
+/// the stitch in order. A later section's re-hearing is trimmed only when a
+/// prefix of its text exactly matches a suffix of the previous caption. The
+/// match may be longer than the overlap; at most `boundaryWordBudget` leading
+/// words are dropped (about 3–4 at 3 s, more at 5–10 s). Time overlap alone
+/// never deletes distinct words.
 public enum ChunkReconciler {
-    public static func commit(raw: [RawSegment], for chunk: AudioChunk, isLast: Bool,
+    public static func commit(raw: [RawSegment], for chunk: AudioChunk,
                               after committed: [TranscriptSegment]) -> [TranscriptSegment]
     {
         var previousEnd = committed.last?.end ?? 0
@@ -37,13 +34,12 @@ public enum ChunkReconciler {
 
         let candidates = raw
             .filter { $0.start.isFinite && $0.end.isFinite && $0.end > $0.start }
-            .filter { isLast || $0.start < chunk.ownedEnd }
             .sorted { $0.start < $1.start }
 
         for candidate in candidates {
             var text = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty, !isNonSpeechMarker(text) else { continue }
-            guard candidate.end > previousEnd else { continue } // entirely inside committed time
+            guard candidate.end > previousEnd else { continue }
             var start = candidate.start
             if start < previousEnd {
                 let incoming = normalizedWords(text)

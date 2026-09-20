@@ -1,25 +1,15 @@
 import Foundation
 
-/// Which overlap rule to apply when folding chunk engine output into captions.
-public enum CaptionEngineKind: String, Codable, Sendable, CaseIterable {
-    case local
-    case cloud
-}
-
 /// Black-box fold of planned chunks plus per-chunk engine output.
 ///
 /// The coordinator owns I/O. Tests and jobs feed each engine's recorded raw
-/// lists; stitching is the same overlap word budget for local and cloud.
+/// lists in order. Chunks never drop phrases; the stitch is the only cut.
 public enum CaptionPipeline {
-    public static func reconcile(plan: [AudioChunk], rawByChunk: [[RawSegment]],
-                                 engine _: CaptionEngineKind = .local) -> [TranscriptSegment]
-    {
+    public static func reconcile(plan: [AudioChunk], rawByChunk: [[RawSegment]]) -> [TranscriptSegment] {
         precondition(plan.count == rawByChunk.count, "each planned chunk needs one raw list")
         var committed: [TranscriptSegment] = []
         for (index, chunk) in plan.enumerated() {
-            committed += ChunkReconciler.commit(
-                raw: rawByChunk[index], for: chunk, isLast: index == plan.count - 1, after: committed,
-            )
+            committed += ChunkReconciler.commit(raw: rawByChunk[index], for: chunk, after: committed)
         }
         return committed
     }

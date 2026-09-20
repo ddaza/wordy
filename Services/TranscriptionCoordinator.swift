@@ -347,11 +347,10 @@ final class TranscriptionCoordinator {
                 }).value == sourceVersion else { throw OpenRouterError.sourceChanged }
                 // Save an already completed response even if pause arrived just
                 // after it, so resuming does not bill that section a second time.
-                let committed = CloudCaptionReconciler.commit(raw: result.segments, for: chunk,
-                                                              isLast: index == plan.count - 1, after: checkpoint.segments)
-                checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed.segments,
+                let committed = ChunkReconciler.commit(raw: result.segments, for: chunk,
+                                                       after: checkpoint.segments)
+                checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed,
                                                        detectedLanguage: result.language, cloudUsage: result.usage,
-                                                       replacingLastSegment: committed.replacingLastSegment,
                                                        raw: result.segments)
                 do { try await store.save(checkpoint) }
                 catch { throw OpenRouterError.storage }
@@ -508,7 +507,7 @@ final class TranscriptionCoordinator {
                 )
                 let result = try await transcribeWithRetry(request)
                 let committed = ChunkReconciler.commit(raw: result.segments, for: chunk,
-                                                       isLast: index == plan.count - 1, after: checkpoint.segments)
+                                                       after: checkpoint.segments)
                 checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed,
                                                        detectedLanguage: result.detectedLanguage,
                                                        raw: result.segments)

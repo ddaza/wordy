@@ -42,9 +42,9 @@ import Testing
     let first = [TranscriptSegment(start: 50, end: 62, text: "We define the limit as h goes to zero")]
     let reheard = [RawSegment(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient.")]
     // Five shared words; 3 s may drop four of them, 5 s and 10 s drop the whole match.
-    let local = ChunkReconciler.commit(raw: reheard, for: tight[1], isLast: true, after: first)
-    let five = ChunkReconciler.commit(raw: reheard, for: mid[1], isLast: true, after: first)
-    let cloud = ChunkReconciler.commit(raw: reheard, for: wide[1], isLast: true, after: first)
+    let local = ChunkReconciler.commit(raw: reheard, for: tight[1], after: first)
+    let five = ChunkReconciler.commit(raw: reheard, for: mid[1], after: first)
+    let cloud = ChunkReconciler.commit(raw: reheard, for: wide[1], after: first)
     #expect(local.first?.text == "zero of the difference quotient.")
     #expect(five.first?.text == "of the difference quotient.")
     #expect(cloud.first?.text == "of the difference quotient.")
@@ -56,23 +56,38 @@ import Testing
     #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 30, overlapSeconds: -1) }
 }
 
-@Test func `overlap speech is committed once by the chunk that heard it start`() throws {
+@Test func `overlap speech is committed once by the suffix prefix stitch`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     let first = ChunkReconciler.commit(raw: [
         .init(start: 0, end: 10, text: "Welcome to the lecture."),
         .init(start: 55, end: 61, text: "The derivative of x squared"),
-        .init(start: 61, end: 63, text: "is two x."), // starts past the owned end → chunk 1 commits it
-    ], for: plan[0], isLast: false, after: [])
-    #expect(first.map(\.text) == ["Welcome to the lecture.", "The derivative of x squared"])
+        .init(start: 61, end: 63, text: "is two x."),
+    ], for: plan[0], after: [])
+    #expect(first.map(\.text) == ["Welcome to the lecture.", "The derivative of x squared", "is two x."])
 
     let second = ChunkReconciler.commit(raw: [
-        .init(start: 57.5, end: 61, text: "derivative of x squared"), // fully inside committed time → dropped
+        .init(start: 57.5, end: 61, text: "derivative of x squared"),
         .init(start: 61, end: 63, text: "is two x."),
         .init(start: 63, end: 70, text: "Next we integrate."),
-    ], for: plan[1], isLast: true, after: first)
-    #expect(second.map(\.text) == ["is two x.", "Next we integrate."])
+    ], for: plan[1], after: first)
+    #expect(second.map(\.text) == ["Next we integrate."])
     _ = try TranscriptTimeline(segments: first + second)
+}
+
+@Test func `raw phrases past the owned end are still offered to the stitch`() {
+    let plan = ChunkPlanner.plan(duration: 120, policy: .default)
+    let first = ChunkReconciler.commit(raw: [
+        .init(start: 50, end: 58, text: "The lecture continues"),
+        .init(start: 60, end: 72, text: "Boundary title phrase one"),
+    ], for: plan[0], after: [])
+    #expect(first.map(\.text) == ["The lecture continues", "Boundary title phrase one"])
+
+    let second = ChunkReconciler.commit(raw: [
+        .init(start: 60, end: 72, text: "Boundary title phrase one"),
+        .init(start: 72, end: 80, text: "Next section continues"),
+    ], for: plan[1], after: first)
+    #expect(second.map(\.text) == ["Next section continues"])
 }
 
 @Test func `a sentence straddling the boundary is kept by the chunk with full context`() throws {
@@ -81,14 +96,14 @@ import Testing
     // Starts 2 s before the boundary, ends inside the next chunk's owned range.
     let first = ChunkReconciler.commit(raw: [
         .init(start: 58, end: 62.5, text: "Only at that time did they recognize it."),
-    ], for: plan[0], isLast: false, after: [])
+    ], for: plan[0], after: [])
     #expect(first.map(\.text) == ["Only at that time did they recognize it."])
 
     // The next chunk started mid-sentence and heard a garbled partial version.
     let second = ChunkReconciler.commit(raw: [
         .init(start: 59, end: 62.5, text: "time they recognized"),
         .init(start: 62.5, end: 66, text: "They call it external medicine."),
-    ], for: plan[1], isLast: true, after: first)
+    ], for: plan[1], after: first)
     #expect(second.map(\.text) == ["They call it external medicine."])
     #expect(second.first?.start == 62.5)
     _ = try TranscriptTimeline(segments: first + second)
@@ -99,10 +114,10 @@ import Testing
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     let first = ChunkReconciler.commit(raw: [
         .init(start: 50, end: 62, text: "alpha beta gamma delta"),
-    ], for: plan[0], isLast: false, after: [])
+    ], for: plan[0], after: [])
     let second = ChunkReconciler.commit(raw: [
         .init(start: 58, end: 66, text: "one two three four five six seven eight"),
-    ], for: plan[1], isLast: true, after: first)
+    ], for: plan[1], after: first)
     #expect(second.first?.text == "one two three four five six seven eight")
     #expect(second.first?.start == 62)
     #expect(second.first?.end == 66)
@@ -113,10 +128,10 @@ import Testing
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     let first = ChunkReconciler.commit(raw: [
         .init(start: 50, end: 62, text: "We define the limit as h goes to zero"),
-    ], for: plan[0], isLast: false, after: [])
+    ], for: plan[0], after: [])
     let second = ChunkReconciler.commit(raw: [
         .init(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient."),
-    ], for: plan[1], isLast: true, after: first)
+    ], for: plan[1], after: first)
     #expect(second.count == 1)
     #expect(second.first?.text == "zero of the difference quotient.")
     #expect(second.first?.start == 62)
@@ -128,10 +143,10 @@ import Testing
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     let first = ChunkReconciler.commit(raw: [
         .init(start: 40, end: 45, text: "Again and again and again."),
-    ], for: plan[0], isLast: false, after: [])
+    ], for: plan[0], after: [])
     let second = ChunkReconciler.commit(raw: [
         .init(start: 61, end: 66, text: "Again and again and again."),
-    ], for: plan[1], isLast: true, after: first)
+    ], for: plan[1], after: first)
     #expect(second.first?.text == "Again and again and again.")
     #expect((first + second).count == 2)
 }
@@ -146,7 +161,7 @@ import Testing
         .init(start: 20, end: 15, text: "reversed"),
         .init(start: 15, end: .nan, text: "nan"),
         .init(start: 30, end: 31, text: "Real words."),
-    ], for: plan[0], isLast: true, after: [])
+    ], for: plan[0], after: [])
     #expect(committed.map(\.text) == ["Real words."])
 }
 

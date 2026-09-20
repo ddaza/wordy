@@ -2,7 +2,7 @@
 
 This records how Wordy turns chunked ASR into committed captions, how to tell a planner/ASR miss from a stitch bug, and which alternatives were tried and rejected. Local whisper.cpp and Advanced Mode (OpenRouter) share the same stitch. See `docs/inference.md` for the worker and checkpoints, and `docs/cloud-transcription.md` for upload bounds and consent.
 
-Private lecture audio stays under git-ignored `assets/` (and any local checkpoint dumps under `PrivateFixtures/`). Do not commit recordings, quote them, or upload them without the recording owner's authorization. Functional caption tests use committed synthetic JSON in `Tests/Fixtures/` only.
+Private lecture audio stays under git-ignored `assets/`. Do not commit recordings, quote them, or upload them without the recording owner's authorization. Functional caption tests use committed JSON in `Tests/Fixtures/` only.
 
 ## What a job stores
 
@@ -23,21 +23,21 @@ The checkpoint for a recording (`<Application Support>/Wordy/Transcripts/<sha256
 plan + raw-by-chunk  →  CaptionPipeline.reconcile  →  committed captions
 ```
 
-`CaptionPipeline` (`Core/CaptionPipeline.swift`) is a black-box fold over `ChunkReconciler.commit`. Tests and jobs pass recorded raw lists; the coordinator owns decoding, XPC, and HTTP. Local and cloud use the same rule. `CloudCaptionReconciler` is a thin wrapper so existing call sites keep compiling.
+Chunks do not drop phrases by owned time. `CaptionPipeline` feeds each section's `raw` list to `ChunkReconciler` in order; only the suffix/prefix stitch may remove overlap re-hears.
 
 ## Isolation: three word bags
 
 Compare these, in order. Do not treat “gold minus committed” as a single failure.
 
 1. **Gold − raw union** — the engine never returned the word in any section. That is a chunk window (planner) or ASR miss. The stitch cannot invent it.
-2. **Owning-chunk raw − committed** — the section that owns the word's start heard it, but the stitch dropped it. That is a reconciler bug.
-3. **Raw in a non-owning overlap − committed** — a trailing window heard speech whose start belongs to the next section, and the next section transcribed something else. Attribution is working as designed; the owning window did not hear those words.
+2. **Unique raw − committed** — some section heard the word, but the stitch dropped it. That is a reconciler bug. Do not filter by owned start; trailing-overlap phrases are offered to the stitch too.
+3. **Time-contained re-hears** — a raw interval whose end is still inside already-committed time is skipped as a timestamp duplicate. Distinct text that *starts* after the previous caption, including past the owned end, is kept for the stitch.
 
 A time window that takes *every* word from any segment that merely overlaps the window will also count later words in a long Whisper phrase. That produced phantom “reconciler drops” of common tokens (`is`, `the`, `tang`) and is not a valid stitch check.
 
-Committed functional tests (`Tests/CaptionPipelineTests.swift`) load every `Tests/Fixtures/*.json` and fold it through `CaptionPipeline`. Each fixture must keep owning-chunk raw words and the `expected` captions. Add a new case by writing that JSON (or exporting a checkpoint from a Wordy job and replacing private text with synthetic wording). Unit checks for a single seam also live in `Tests/ChunkPipelineTests.swift`.
+Committed functional tests (`Tests/CaptionPipelineTests.swift`) load every `Tests/Fixtures/*.json` and fold it through `CaptionPipeline`. The development clip lives in `Tests/Fixtures/clip-14-20/` (gold one-shot plus cloud 60 s+10 s `raw` recorded through `CaptionJobRecorder` / `OpenRouterSectionClient`). Gold is compared only as “never heard”; the hard stitch gate is unique heard words surviving. Re-record with `WORDY_RECORD_CLIP=1` (OpenRouter key in `.env`); default `make test-core` does not upload.
 
-Do not point tests at `assets/`, environment paths, or live provider calls. Those confuse the next reader into thinking caption quality is validated outside the app.
+Do not point tests at `assets/`, environment paths, or live provider calls. Those confuse the next reader into thinking caption quality is validated outside the app. The private clip file may exist under git-ignored `assets/` for that opt-in re-record only.
 
 ## Overlap word budget
 
@@ -75,11 +75,15 @@ Recorded so the same experiments are not repeated without new evidence.
 
 ### Midpoint attribution
 
-A segment was committed by the chunk that owned its midpoint. A sentence that started just before a boundary and ended just after it was discarded by both neighbors. Replaced by **start-based** attribution: the chunk that heard the sentence *start* (with trailing overlap as right context) commits it. `docs/benchmarks/2026-09-13-m4max.md` measured the recovery on local 60 s + 3 s.
+A segment was committed by the chunk that owned its midpoint. A sentence that started just before a boundary and ended just after it was discarded by both neighbors. Replaced by start-based attribution (below), then by offering every well-formed raw interval to the stitch. `docs/benchmarks/2026-09-13-m4max.md` measured the first recovery on local 60 s + 3 s.
 
 ### Fixed 8-word cap
 
 The first start-based stitch dropped at most eight duplicated boundary words, independent of overlap seconds. Too small for cloud 10 s phrases and unrelated to the decoded overlap. Replaced by the overlap-derived budget above.
+
+### Owned-end start filter
+
+After midpoint attribution was dropped, a raw phrase was still discarded when its *start* sat on or past the chunk's owned end. Phrases heard only in trailing overlap (and missed by the next chunk's ASR grid) never reached the stitch. Removed: every well-formed raw interval is offered; only the suffix/prefix budget and time-contained skip may cut.
 
 ### Time-proportional deletion
 
@@ -95,7 +99,7 @@ The longest-match loop was capped at the budget (4 words at 3 s). A 5-word re-he
 
 ### Separate OpenRouter capture script
 
-A Python helper uploaded the same clip as planned chunks and wrote fixture JSON. That duplicated the decoder, policy, and time shift, and drifted from the app. Removed. Optional git-ignored dumps under `assets/asr-compare/` were the same idea and are not a test input. Fixtures are `CaptionJobFixture` JSON committed in `Tests/Fixtures/`, produced from `TranscriptCheckpoint` or written against those types.
+A Python helper uploaded the same clip as planned chunks and wrote fixture JSON. That duplicated the decoder, policy, and time shift, and drifted from the app. Removed, along with the git-ignored dumps it produced under `assets/asr-compare/`. Fixtures are `CaptionJobFixture` JSON committed in `Tests/Fixtures/`, produced from `TranscriptCheckpoint` or written against those types. Re-recording the development clip uses `CaptionJobRecorder` / `WORDY_RECORD_CLIP=1`, not a side script.
 
 ### Cloud 50 s + 15 s
 
@@ -103,7 +107,7 @@ Tried so each upload still fit the 80 s / 3 MiB PCM cap while adding lead-in. Ex
 
 ### Dual reconcilers
 
-Cloud briefly had extra phrase-merge / last-segment replacement rules. They concatenated overlapping Whisper phrases into word salad or erased later clauses via short matches. Cloud now calls `ChunkReconciler.commit` and does not rewrite the previous caption.
+Cloud briefly had extra phrase-merge / last-segment replacement rules (`CloudCaptionReconciler`, `replacingLastSegment`). They concatenated overlapping Whisper phrases into word salad or erased later clauses via short matches. Removed. Local and cloud jobs both call `ChunkReconciler.commit` and do not rewrite the previous caption.
 
 ### Gold-vs-committed as a single assertion
 
@@ -113,7 +117,6 @@ Comparing an unchunked one-shot transcript to stitched captions in one window mi
 
 - ASR will omit or respell terms the stitch never sees. Isolation should print those gold−raw gaps, not fail the stitch suite.
 - A leftover duplicate of one or two words at a 3 s seam is expected when the true overlap is longer than the budget.
-- A word heard only in the previous section's trailing overlap, whose start belongs to the next section that did not repeat it, is lost. Fixing that means changing the window or the engine, not deleting more text in the stitch.
 - `initial_prompt` / decoder context across chunks is still off.
 
 ## Code map
@@ -121,10 +124,11 @@ Comparing an unchunked one-shot transcript to stitched captions in one window mi
 | Piece | Role |
 | --- | --- |
 | `Core/ChunkPlan.swift` | Policy, owned vs decoded ranges, `boundaryWordBudget` |
-| `Core/ChunkReconciler.swift` | `RawSegment`, start-based commit, suffix/prefix stitch |
-| `Core/CloudCaptionReconciler.swift` | Same stitch; keeps the cloud call shape |
+| `Core/ChunkReconciler.swift` | `RawSegment`, suffix/prefix stitch; all well-formed raw is offered |
 | `Core/CaptionPipeline.swift` | Fold for tests and comparison |
 | `Core/CaptionJobFixture.swift` | Checkpoint snapshot / committed JSON schema |
 | `Core/TranscriptCheckpoint.swift` | Optional `raw: [[RawSegment]]` beside `segments` |
+| `Core/CaptionJobRecorder` | Plans sections and records per-chunk `raw` through the same OpenRouter client as jobs |
 | `Tests/Fixtures/` | Synthetic `CaptionJobFixture` JSON for `make test-core` |
+| `Tests/Fixtures/clip-14-20/` | Gold one-shot plus cloud 60 s+10 s raw for the development clip |
 | `Services/TranscriptionCoordinator.swift` | Persists engine raw on every local and cloud commit |

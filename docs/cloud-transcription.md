@@ -21,7 +21,28 @@ The coordinator serializes local and cloud work in the same queue. A one-use con
 
 Requests use the fixed HTTPS `/api/v1/audio/transcriptions` endpoint, multipart `file`, `model`, `response_format=verbose_json`, and `timestamp_granularities[]=segment`. The URLSession is ephemeral, disables cache/cookies, refuses redirects, and has a 120-second resource timeout. There are no application-level automatic HTTP retries. Responses are limited to 2 MiB and 4,096 segments. No provider response body, API key, audio, transcript, or source filename is logged.
 
-Relative times are shifted by the actual decoded source offset. Each committed section stores the provider `raw` segments on the checkpoint so captions can be compared to what OpenRouter actually returned. Cloud uses the same overlap stitch as local inference (`docs/caption-pipeline.md`): find the shared suffix/prefix, then drop at most about 1.25 words per overlap second (3 s → 4 words, 5 s → 6, 10 s → 13). Time overlap alone never deletes distinct text.
+## Pause, cancel, and resume
+
+Pause is a first-class job state, not a failed network request. `TranscriptionCoordinator.pause` cancels the in-flight Swift task and, for a local job, the XPC worker. Disabling Advanced Mode, removing the Keychain key, or revoking consent cancels queued and active cloud jobs the same way. The job status becomes **paused**. `CancellationError` must not be rewritten as `OpenRouterError.network`.
+
+Cloud decode and upload share `OpenRouterSectionClient` (`Core/OpenRouterTranscription.swift`) with clip fixture recording so both paths honor the same abort points. `OpenRouterProvider` is the job-facing actor: it checks cancellation before starting a section and rethrows `CancellationError` if pause arrives during the client call.
+
+Abort points on each section:
+
+1. Coordinator loop: `Task.checkCancellation()` before reading the source and before requesting a key.
+2. Provider: `Task.checkCancellation()` before decode.
+3. Decoder: `AudioChunkDecoder.decode(..., isCancelled:)` so a pause stops PCM preparation.
+4. Provider/client: `Task.checkCancellation()` again **before** the HTTP upload, so a pause after decode does not start a new billed request.
+5. Response body: cancellation is checked while bytes arrive and after the body is complete.
+6. Session teardown: `invalidateAndCancel()`; HTTP redirects are refused.
+
+If pause arrives **after** `transcribe` has already returned a valid section, the coordinator still commits that section and its `raw` list. Resume must not upload the same window again. A provider may still complete and charge an accepted request that Wordy cancelled mid-flight; that is why there are no automatic HTTP retries, and why Resume asks for consent again.
+
+Local jobs use the same coordinator pause entry, plus `worker.cancel(jobID:)` so whisper.cpp’s abort callback stops the in-flight chunk. Quitting, a worker crash, or pause loses at most that chunk (`docs/inference.md`).
+
+Tests: `Tests/CloudCoordinatorTests.swift` (pause on relaunch, disable, revoke, key removal) and `Tests/OpenRouterHTTPTests.swift` (`cancelling an in-flight cloud section stays a pause not a network error`).
+
+Relative times are shifted by the actual decoded source offset. Each committed section stores the provider `raw` segments on the checkpoint so captions can be compared to what OpenRouter actually returned. Cloud uses the same overlap stitch as local inference (`docs/caption-pipeline.md`): find the shared suffix/prefix, then drop at most about 1.25 words per overlap second (3 s → 4 words, 5 s → 6, 10 s → 13). Time overlap alone never deletes distinct text. Chunks do not drop phrases by owned time; the stitch is the only cut.
 
 ## Cloud usage in the transcription status
 

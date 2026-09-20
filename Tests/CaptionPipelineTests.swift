@@ -48,10 +48,10 @@ struct CaptionPipelineTests {
 
             let committed = fixture.reconcile()
             _ = try TranscriptTimeline(segments: committed)
-            let (ownedDropped, expectedMissing, unexpected) = fixture.isolation()
+            let (heardDropped, expectedMissing, unexpected) = fixture.isolation()
             #expect(
-                ownedDropped.isEmpty,
-                Comment(rawValue: "\(fixture.name) stitch dropped \(ownedDropped.joined(separator: " "))"),
+                heardDropped.isEmpty,
+                Comment(rawValue: "\(fixture.name) stitch dropped \(heardDropped.joined(separator: " "))"),
             )
             #expect(
                 expectedMissing.isEmpty,
@@ -77,14 +77,14 @@ struct CaptionPipelineTests {
         let firstRaw = [RawSegment(start: 50, end: 62, text: "We define the limit as h goes to zero")]
         checkpoint = try checkpoint.committing(
             chunkIndex: 0,
-            segments: ChunkReconciler.commit(raw: firstRaw, for: plan[0], isLast: false, after: []),
+            segments: ChunkReconciler.commit(raw: firstRaw, for: plan[0], after: []),
             detectedLanguage: "en",
             raw: firstRaw,
         )
         let secondRaw = [RawSegment(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient.")]
         checkpoint = try checkpoint.committing(
             chunkIndex: 1,
-            segments: ChunkReconciler.commit(raw: secondRaw, for: plan[1], isLast: true, after: checkpoint.segments),
+            segments: ChunkReconciler.commit(raw: secondRaw, for: plan[1], after: checkpoint.segments),
             detectedLanguage: "en",
             raw: secondRaw,
         )
