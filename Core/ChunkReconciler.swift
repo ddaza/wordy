@@ -32,7 +32,7 @@ public enum ChunkReconciler {
     public static func commit(raw: [RawSegment], for chunk: AudioChunk,
                               after committed: [TranscriptSegment]) -> [TranscriptSegment]
     {
-        let boundary = committed.filter { $0.end > chunk.audioStart - 0.25 }
+        let boundary = committed.filter { $0.end > chunk.audioStart - CaptionPipeline.decodedWindowSlack }
         let candidates = raw.enumerated().filter {
             $0.element.start.isFinite && $0.element.end.isFinite
                 && $0.element.start >= 0 && $0.element.end > $0.element.start

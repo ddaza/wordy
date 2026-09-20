@@ -5,6 +5,10 @@ import Foundation
 /// The coordinator owns I/O. Tests and jobs feed each engine's recorded raw
 /// lists in order. Chunks never drop phrases; the stitch is the only cut.
 public enum CaptionPipeline {
+    /// Decoded-frame rounding at a section edge. Slightly longer engine ends are
+    /// clamped; intervals farther outside the window are dropped from the stitch.
+    public static let decodedWindowSlack: TimeInterval = 0.25
+
     public struct State: Sendable {
         public var committed: [TranscriptSegment] = []
         public var pending: [TranscriptSegment] = []
@@ -17,7 +21,7 @@ public enum CaptionPipeline {
         public mutating func append(raw: [RawSegment], chunk: AudioChunk, next: AudioChunk?) {
             // Also handles resuming a legacy checkpoint whose tail was already
             // published. No earlier finalized caption is rewritten.
-            let boundary = committed.firstIndex { $0.end > chunk.audioStart - 0.25 } ?? committed.count
+            let boundary = committed.firstIndex { $0.end > chunk.audioStart - decodedWindowSlack } ?? committed.count
             let tail = Array(committed[boundary...]) + pending
             // Engines can round the final frame a few milliseconds past the
             // decoded window. Never extend captions beyond available audio.
@@ -27,7 +31,7 @@ public enum CaptionPipeline {
             }
             let revised = ChunkReconciler.reconcile(raw: bounded, for: chunk, after: tail)
             committed.removeSubrange(boundary...)
-            let cutoff = next.map { max(0, $0.audioStart - 0.25) } ?? .infinity
+            let cutoff = next.map { max(0, $0.audioStart - decodedWindowSlack) } ?? .infinity
             let provisional = revised.firstIndex { $0.end > cutoff } ?? revised.count
             committed.append(contentsOf: revised[..<provisional])
             pending = Array(revised[provisional...])

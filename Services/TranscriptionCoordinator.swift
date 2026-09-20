@@ -390,14 +390,14 @@ final class TranscriptionCoordinator {
             let plan = ChunkPlanner.plan(duration: job.duration, policy: checkpoint.configuration.policy)
             jobs[lectureID]?.cloudUsage = checkpoint.cloudUsage ?? (checkpoint.configuration.engineName == "OpenRouter"
                 ? CloudUsageTotals(unreportedSections: checkpoint.committedChunkCount) : nil)
-            jobs[lectureID]?.segments = checkpoint.segments
+            jobs[lectureID]?.segments = checkpoint.publishedSegments
             jobs[lectureID]?.completedThrough = checkpoint.completedThrough(plan: plan)
             jobs[lectureID]?.restoredFromCheckpoint = true
             jobs[lectureID]?.modelID = checkpoint.configuration.modelID
             if checkpoint.configuration.engineName == "OpenRouter" {
                 jobs[lectureID]?.cloudConfiguration = checkpoint.configuration
             }
-            onSegmentsChanged?(lectureID, checkpoint.segments, digest)
+            onSegmentsChanged?(lectureID, checkpoint.publishedSegments, digest)
             if checkpoint.isComplete {
                 jobs[lectureID]?.status = .complete
                 return
@@ -518,7 +518,7 @@ final class TranscriptionCoordinator {
                 jobs[lectureID]?.lastRealTimeFactor = result.metrics.realTimeFactor
                 modelLoad += result.metrics.modelLoadMilliseconds
                 peakFootprint = max(peakFootprint, result.metrics.workerFootprintBytes)
-                if firstResult == nil, committedCount > 0 {
+                if firstResult == nil, !checkpoint.publishedSegments.isEmpty {
                     firstResult = (ContinuousClock.now - started).milliseconds
                 }
                 chunkRecords.append(.init(
@@ -568,9 +568,9 @@ final class TranscriptionCoordinator {
     private func publish(_ lectureID: UUID, checkpoint: TranscriptCheckpoint, plan: [AudioChunk]) {
         jobs[lectureID]?.cloudUsage = checkpoint.cloudUsage ?? (checkpoint.configuration.engineName == "OpenRouter"
             ? CloudUsageTotals(unreportedSections: checkpoint.committedChunkCount) : nil)
-        jobs[lectureID]?.segments = checkpoint.segments
+        jobs[lectureID]?.segments = checkpoint.publishedSegments
         jobs[lectureID]?.completedThrough = checkpoint.completedThrough(plan: plan)
-        onSegmentsChanged?(lectureID, checkpoint.segments, checkpoint.audioSHA256)
+        onSegmentsChanged?(lectureID, checkpoint.publishedSegments, checkpoint.audioSHA256)
     }
 
     private func describeEngine() async throws -> EngineDescription {

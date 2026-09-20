@@ -100,6 +100,10 @@ struct CaptionRecoveryTests {
         let first = try checkpoint().committing(chunkIndex: 0, raw: raw, detectedLanguage: "en")
         #expect(first.segments.isEmpty)
         #expect(first.pendingSegments?.map(\.text) == ["First example."])
+        #expect(first.publishedSegments.map(\.text) == ["First example."])
+        #expect(first.publishedSegments.first?.timingUncertain == true)
+        #expect(first.publishedSegments.first?.id == first.pendingSegments?.first?.id)
+        #expect(TranscriptSearch.hits(in: first.publishedSegments, query: "First example").first?.time == 40)
         #expect(first.completedThrough(plan: ChunkPlanner.plan(duration: 120, policy: .cloudDefault)) == 40)
         let restored = try JSONDecoder().decode(TranscriptCheckpoint.self, from: JSONEncoder().encode(first))
         let second = try restored.committing(chunkIndex: 1,
@@ -178,8 +182,31 @@ struct CaptionRecoveryTests {
         let invalidRaw = [RawSegment(start: 2, end: 1000, text: "Malformed timing.")]
         let malformed = try checkpoint().committing(chunkIndex: 0, segments: [saved], detectedLanguage: nil, raw: invalidRaw)
         #expect(try malformed.repairingCaptions() == malformed)
-        #expect(throws: TranscriptCheckpoint.CheckpointError.invalidSegments) {
-            try checkpoint().committing(chunkIndex: 0, raw: invalidRaw, detectedLanguage: nil)
-        }
+        let dropped = try checkpoint().committing(chunkIndex: 0, raw: invalidRaw, detectedLanguage: nil)
+        #expect(dropped.publishedSegments.isEmpty && dropped.raw?.first?.first?.end == 1000)
+
+        let plan = ChunkPlanner.plan(duration: 30, policy: .cloudDefault)
+        var mixed = TranscriptCheckpoint(audioSHA256: "synthetic", sourceDuration: 30,
+                                         configuration: configuration, chunkCount: 1)
+        mixed = try mixed.committing(chunkIndex: 0, raw: [
+            .init(start: 10, end: plan[0].audioEnd + 0.1, text: "Slightly rounded ending."),
+            .init(start: 2, end: 1000, text: "Malformed timing."),
+            .init(start: 12, end: 20, text: "Kept phrase."),
+        ], detectedLanguage: nil)
+        #expect(mixed.isComplete)
+        #expect(mixed.publishedSegments.map(\.text) == ["Slightly rounded ending.", "Kept phrase."])
+        #expect(mixed.publishedSegments.first?.end == plan[0].audioEnd)
+        #expect(mixed.raw?.first?.contains { $0.end == 1000 } == true)
+
+        let clampable = try checkpoint().committing(
+            chunkIndex: 0, segments: [.init(start: 10, end: 20, text: "Kept phrase.")], detectedLanguage: nil,
+            raw: [
+                .init(start: 10, end: 20, text: "Kept phrase."),
+                .init(start: 40, end: 70.2, text: "Slightly rounded ending."),
+            ],
+        )
+        let repairedSlight = try clampable.repairingCaptions()
+        #expect(repairedSlight.captionRevision == ChunkReconciler.revision)
+        #expect(repairedSlight.publishedSegments.contains { $0.text == "Slightly rounded ending." && $0.end == 70 })
     }
 }

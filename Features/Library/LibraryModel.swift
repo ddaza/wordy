@@ -15,10 +15,10 @@ struct Lecture: Identifiable {
         url == nil
     }
 
-    /// Segments are committed through validated checkpoints, so this only fails
-    /// for the empty case, which is itself valid.
+    /// Segments are committed through validated checkpoints. A missing overlap
+    /// flag is repaired for display so playback cannot go blank.
     var timeline: TranscriptTimeline {
-        (try? TranscriptTimeline(segments: segments)) ?? (try! TranscriptTimeline(segments: []))
+        TranscriptTimeline.presenting(segments).timeline
     }
 }
 
@@ -143,10 +143,19 @@ final class LibraryModel {
 
     private func apply(segments: [TranscriptSegment], sha256: String?, to lectureID: UUID) {
         guard let index = lectures.firstIndex(where: { $0.id == lectureID }) else { return }
-        lectures[index].segments = segments
+        let presented = TranscriptTimeline.presenting(segments)
+        if presented.timeline.segments.isEmpty, !segments.isEmpty, !lectures[index].segments.isEmpty {
+            Logger(subsystem: "com.wordy.app", category: "library")
+                .error("Transcript intervals could not be shown; keeping the visible captions.")
+            if let sha256 {
+                lectures[index].sha256 = sha256
+            }
+            return
+        }
+        lectures[index].segments = presented.segments
         lectures[index].sha256 = sha256
         if selection == lectureID {
-            playback.updateTimeline(lectures[index].timeline)
+            playback.updateTimeline(presented.timeline)
             bookmarks.display(sha256: sha256, duration: lectures[index].duration)
         }
     }

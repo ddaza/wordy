@@ -79,4 +79,23 @@ public struct TranscriptTimeline: Sendable {
         }
         return active.reversed()
     }
+
+    /// Player, transcript, and search use this so a missing overlap flag cannot
+    /// blank the visible captions. Invalid intervals still cannot be presented.
+    public static func presenting(_ segments: [TranscriptSegment]) -> (segments: [TranscriptSegment], timeline: TranscriptTimeline) {
+        if let timeline = try? TranscriptTimeline(segments: segments) {
+            return (segments, timeline)
+        }
+        var previousEnd: TimeInterval = 0
+        let marked = segments.map { segment -> TranscriptSegment in
+            let result = segment.start < previousEnd && segment.timingUncertain != true
+                ? segment.markingUncertain() : segment
+            previousEnd = max(previousEnd, segment.end)
+            return result
+        }
+        if let timeline = try? TranscriptTimeline(segments: marked) {
+            return (marked, timeline)
+        }
+        return (segments, try! TranscriptTimeline(segments: []))
+    }
 }

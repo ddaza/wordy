@@ -81,7 +81,8 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         if captionRevision == ChunkReconciler.revision {
             guard !isComplete else { return sourceDuration }
             guard plan.indices.contains(committedChunkCount) else { return 0 }
-            return min(max(0, plan[committedChunkCount].audioStart - 0.25), pendingSegments?.first?.start ?? sourceDuration)
+            return min(max(0, plan[committedChunkCount].audioStart - CaptionPipeline.decodedWindowSlack),
+                       pendingSegments?.first?.start ?? sourceDuration)
         }
         return plan[committedChunkCount - 1].ownedEnd
     }
@@ -141,9 +142,9 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         }
         let plan = ChunkPlanner.plan(duration: sourceDuration, policy: configuration.policy)
         guard plan.count == chunkCount, plan.indices.contains(chunkIndex) else { throw CheckpointError.invalidSegments }
-        guard Self.validRaw(newRaw, for: plan[chunkIndex]) else { throw CheckpointError.invalidSegments }
+        let usable = Self.sanitizedRaw(newRaw, for: plan[chunkIndex]).usable
         var state = CaptionPipeline.State(committed: segments, pending: pendingSegments ?? [])
-        state.append(raw: newRaw, chunk: plan[chunkIndex], next: plan.indices.contains(chunkIndex + 1) ? plan[chunkIndex + 1] : nil)
+        state.append(raw: usable, chunk: plan[chunkIndex], next: plan.indices.contains(chunkIndex + 1) ? plan[chunkIndex + 1] : nil)
         var next = self
         next.segments = state.committed
         next.pendingSegments = state.pending
@@ -178,13 +179,29 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         return rawIsComplete ?? raw.allSatisfy { !$0.isEmpty }
     }
 
+    /// Playback, transcript, and search. The overlap tail stays provisional in
+    /// the checkpoint and is labeled approximate until the next section arrives.
+    /// Text export should keep using `segments`.
+    public var publishedSegments: [TranscriptSegment] {
+        segments + (pendingSegments ?? []).map { segment in
+            segment.timingUncertain == true ? segment : segment.markingUncertain()
+        }
+    }
+
     public func repairingCaptions() throws -> TranscriptCheckpoint {
         guard (captionRevision ?? 0) < ChunkReconciler.revision, hasReplayableRaw, let raw else { return self }
         let plan = ChunkPlanner.plan(duration: sourceDuration, policy: configuration.policy)
-        guard plan.count == chunkCount, raw.count <= plan.count,
-              raw.enumerated().allSatisfy({ Self.validRaw($0.element, for: plan[$0.offset]) })
-        else { return self }
-        let state = CaptionPipeline.state(plan: plan, rawByChunk: raw)
+        guard plan.count == chunkCount, raw.count <= plan.count else { return self }
+        var sanitized: [[RawSegment]] = []
+        sanitized.reserveCapacity(raw.count)
+        for (index, list) in raw.enumerated() {
+            let window = Self.sanitizedRaw(list, for: plan[index])
+            if window.containsWildInterval {
+                return self
+            }
+            sanitized.append(window.usable)
+        }
+        let state = CaptionPipeline.state(plan: plan, rawByChunk: sanitized)
         // Keep identities of unchanged passages across a local repair.
         struct Key: Hashable { let start: Double; let end: Double; let text: String }
         var identities: [Key: [UUID]] = [:]
@@ -224,10 +241,31 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         }
     }
 
-    private static func validRaw(_ raw: [RawSegment], for chunk: AudioChunk) -> Bool {
-        raw.allSatisfy {
-            $0.start.isFinite && $0.end.isFinite && $0.start >= max(0, chunk.audioStart - 0.25)
-                && $0.end > $0.start && $0.start < chunk.audioEnd && $0.end <= chunk.audioEnd + 0.25
+    private struct SanitizedRaw {
+        var usable: [RawSegment]
+        var containsWildInterval: Bool
+    }
+
+    /// Clamp ends that only overshoot the decoded window; drop phrases farther
+    /// outside it. The original engine list is still stored unchanged.
+    private static func sanitizedRaw(_ raw: [RawSegment], for chunk: AudioChunk) -> SanitizedRaw {
+        let slack = CaptionPipeline.decodedWindowSlack
+        var usable: [RawSegment] = []
+        var containsWildInterval = false
+        for segment in raw {
+            guard segment.start.isFinite, segment.end.isFinite,
+                  segment.start >= 0, segment.end > segment.start
+            else { continue }
+            if segment.start < max(0, chunk.audioStart - slack) || segment.end > chunk.audioEnd + slack {
+                containsWildInterval = true
+                continue
+            }
+            if segment.start >= chunk.audioEnd {
+                continue
+            }
+            usable.append(.init(start: segment.start, end: min(segment.end, chunk.audioEnd),
+                                text: segment.text, noSpeechProbability: segment.noSpeechProbability))
         }
+        return SanitizedRaw(usable: usable, containsWildInterval: containsWildInterval)
     }
 }
