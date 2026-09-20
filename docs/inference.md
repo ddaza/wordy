@@ -53,21 +53,21 @@ Provisional recommendation offered when nothing is selected yet: `whisper-small`
 
 The worker (`Inference/`) decodes each chunk with `AVAssetReader` to 16 kHz mono float and runs `whisper_full` on one serial utility-QoS queue. Peak worker memory is bounded by model size plus one chunk (60 s × 16 kHz × 4 B ≈ 3.8 MB). The first decoded sample's presentation timestamp anchors absolute times, so overlap and reader offsets cannot shift captions.
 
-Non-speech token suppression (`suppress_nst`) and blank suppression are on; bracketed markers that still appear are dropped during reconciliation rather than shown as captions. Greedy decoding with whisper.cpp's default temperature fallback is used; beam search was not evaluated in Milestone 1.
+Non-speech token suppression (`suppress_nst`) and blank suppression are on; known whole nonspeech markers that still appear are dropped during reconciliation. Ordinary parenthesized speech is retained. Greedy decoding with whisper.cpp's default temperature fallback is used; beam search was not evaluated in Milestone 1.
 
 ## Chunking and reconciliation
 
 `ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s.
 
-`ChunkReconciler.commit` offers every well-formed raw interval to the stitch, then drops at most the overlap word budget (about 3–4 words at 3 s) when a later section re-hears already-committed time. Checkpoints store per-section engine `raw` beside committed captions. The current rule, isolation method, and rejected alternatives (midpoint attribution, owned-end start filter, time-proportional deletion, a separate capture script, 50 s + 15 s cloud windows) are in `docs/caption-pipeline.md`.
+`CaptionPipeline.State` keeps a bounded provisional overlap tail until the following response arrives. Revision 2 reconciles ordered text across preceding phrases without a word budget, preserves unmatched speech at its source times, and marks ambiguous overlapping intervals explicitly. Only a matching duplicate prefix supplies evidence for advancing a remaining caption's start. Checkpoints store per-section engine `raw`, finalized captions, and the pending tail; the final section flushes the tail. The rules, recovery behavior, and rejected alternatives are in `docs/caption-pipeline.md`.
 
 Word-level timing is not requested yet; captions remain phrase-level. Carrying decoder context between chunks (`initial_prompt`) is not enabled.
 
 ## Checkpoints and recovery
 
-`TranscriptCheckpoint` (`Core/TranscriptCheckpoint.swift`) records the audio SHA-256, source duration, `TranscriptionConfiguration` (engine, version, model, language, policy), chunk count, committed chunk count, committed segments, and optional per-section `raw` engine output. Chunks commit strictly in order; committing out of order or producing an overlapping timeline throws before anything is persisted.
+`TranscriptCheckpoint` (`Core/TranscriptCheckpoint.swift`) records the audio SHA-256, source duration, `TranscriptionConfiguration` (engine, version, model, language, policy), chunk counts, finalized segments, pending segments, caption revision, and optional per-section `raw` with a completeness flag. Chunks save strictly in order; malformed output or an unmarked overlapping timeline throws before persistence. Explicitly uncertain overlapping source intervals are valid and shown together by playback.
 
-`Services/CheckpointStore.swift` writes `<Application Support>/Wordy/Transcripts/<sha256>.json` through a temporary sibling and `replaceItemAt`, so a crash mid-write leaves the previous checkpoint intact. `TranscriptionCoordinator` persists the checkpoint *before* publishing new segments to the UI, then requests the next chunk. Consequences:
+`Services/CheckpointStore.swift` atomically writes `<Application Support>/Wordy/Transcripts/<sha256>.json`, so an interrupted write leaves the previous checkpoint intact. It reconciles on the storage actor and persists *before* the coordinator publishes new segments. Loading older captions replays complete valid raw history locally, preserves usage/progress and unchanged IDs, and first retains the original bytes in `<sha256>.before-caption-v2.json`. Missing or ambiguous legacy raw is never treated as silence or used to erase saved captions. Consequences:
 
 - Quitting, a worker crash, or a pause loses at most the in-flight chunk.
 - Reopening the same bytes (any path or name) restores committed passages immediately and resumes from `committedChunkCount`.

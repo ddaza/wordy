@@ -32,20 +32,17 @@ import Testing
     #expect(plan.last?.ownedDuration == 65)
 }
 
-@Test func `overlap seconds sets how many boundary words can stitch`() throws {
-    #expect(ChunkPolicy.default.boundaryWordBudget == 4)
-    #expect(try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 5).boundaryWordBudget == 6)
-    #expect(ChunkPolicy.cloudDefault.boundaryWordBudget == 13)
+@Test func `the complete matching phrase is removed independent of overlap budget`() throws {
     let tight = ChunkPlanner.plan(duration: 120, policy: .default)
     let mid = try ChunkPlanner.plan(duration: 120, policy: ChunkPolicy(chunkSeconds: 60, overlapSeconds: 5))
     let wide = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
     let first = [TranscriptSegment(start: 50, end: 62, text: "We define the limit as h goes to zero")]
     let reheard = [RawSegment(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient.")]
-    // Five shared words; 3 s may drop four of them, 5 s and 10 s drop the whole match.
+    // Five matching words must not leave a duplicated "zero" at a short seam.
     let local = ChunkReconciler.commit(raw: reheard, for: tight[1], after: first)
     let five = ChunkReconciler.commit(raw: reheard, for: mid[1], after: first)
     let cloud = ChunkReconciler.commit(raw: reheard, for: wide[1], after: first)
-    #expect(local.first?.text == "zero of the difference quotient.")
+    #expect(local.first?.text == "of the difference quotient.")
     #expect(five.first?.text == "of the difference quotient.")
     #expect(cloud.first?.text == "of the difference quotient.")
 }
@@ -90,7 +87,7 @@ import Testing
     #expect(second.map(\.text) == ["Next section continues"])
 }
 
-@Test func `a sentence straddling the boundary is kept by the chunk with full context`() throws {
+@Test func `disagreeing versions of a straddling sentence are retained at source times`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     // Starts 2 s before the boundary, ends inside the next chunk's owned range.
@@ -104,12 +101,13 @@ import Testing
         .init(start: 59, end: 62.5, text: "time they recognized"),
         .init(start: 62.5, end: 66, text: "They call it external medicine."),
     ], for: plan[1], after: first)
-    #expect(second.map(\.text) == ["They call it external medicine."])
-    #expect(second.first?.start == 62.5)
+    #expect(second.map(\.text) == ["time they recognized", "They call it external medicine."])
+    #expect(second.first?.start == 59)
+    #expect(second.first?.timingUncertain == true)
     _ = try TranscriptTimeline(segments: first + second)
 }
 
-@Test func `disagreeing boundary transcripts keep new words and only clamp time`() throws {
+@Test func `disagreeing boundary transcripts keep new words and source time`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     let first = ChunkReconciler.commit(raw: [
@@ -119,7 +117,7 @@ import Testing
         .init(start: 58, end: 66, text: "one two three four five six seven eight"),
     ], for: plan[1], after: first)
     #expect(second.first?.text == "one two three four five six seven eight")
-    #expect(second.first?.start == 62)
+    #expect(second.first?.start == 58)
     #expect(second.first?.end == 66)
 }
 
@@ -133,7 +131,7 @@ import Testing
         .init(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient."),
     ], for: plan[1], after: first)
     #expect(second.count == 1)
-    #expect(second.first?.text == "zero of the difference quotient.")
+    #expect(second.first?.text == "of the difference quotient.")
     #expect(second.first?.start == 62)
     _ = try TranscriptTimeline(segments: first + second)
 }

@@ -91,7 +91,7 @@ enum Bench {
         log("wordy-bench · \(description.engineName) \(description.engineVersion) · model \(options.modelID) · policy \(policy.label) · gpu=\(options.useGPU) threads=\(threads)")
         log("audio \(String(format: "%.1f", duration)) s in \(plan.count) chunks · sha256 \(digest.prefix(12))…")
 
-        var committed: [TranscriptSegment] = []
+        var captions = CaptionPipeline.State()
         var chunks: [BenchmarkRecord.Chunk] = []
         var peak: UInt64 = 0
         var modelLoad = 0.0
@@ -104,19 +104,21 @@ enum Bench {
                 language: options.language, threads: threads, useGPU: options.useGPU,
             )
             let result = try await session.transcribe(request)
-            let segments = ChunkReconciler.commit(raw: result.segments, for: chunk, after: committed)
-            committed += segments
-            _ = try TranscriptTimeline(segments: committed)
+            let previousCount = captions.committed.count
+            captions.append(raw: result.segments, chunk: chunk,
+                            next: chunk.index + 1 < plan.count ? plan[chunk.index + 1] : nil)
+            let committedCount = max(0, captions.committed.count - previousCount)
+            _ = try TranscriptTimeline(segments: captions.committed + captions.pending)
             modelLoad += result.metrics.modelLoadMilliseconds
             peak = max(peak, result.metrics.workerFootprintBytes)
-            if firstResult == nil, !segments.isEmpty {
+            if firstResult == nil, committedCount > 0 {
                 firstResult = (ContinuousClock.now - started).milliseconds
             }
             chunks.append(.init(
                 index: chunk.index, audioSeconds: result.metrics.audioSeconds,
                 decodeMilliseconds: result.metrics.decodeMilliseconds,
                 inferenceMilliseconds: result.metrics.inferenceMilliseconds,
-                committedSegments: segments.count, footprintBytes: result.metrics.workerFootprintBytes,
+                committedSegments: committedCount, footprintBytes: result.metrics.workerFootprintBytes,
             ))
             let elapsed = (ContinuousClock.now - started).milliseconds / 1000
             log(String(format: "chunk %3d/%d  %7.1fs owned  rtf %.3f  elapsed %6.1fs  footprint %5.0f MB",
@@ -124,6 +126,7 @@ enum Bench {
                        Double(result.metrics.workerFootprintBytes) / 1_048_576))
         }
 
+        let committed = captions.committed
         let wall = (ContinuousClock.now - started).milliseconds
         let record = BenchmarkRecord(
             recordedAt: Date(),

@@ -57,7 +57,8 @@ struct OpenRouterTests {
             audioStart: audioStart, audioDuration: chunk.audioDuration, sourceDuration: 120,
         )
         let committed = ChunkReconciler.commit(raw: result.segments, for: chunk, after: first)
-        #expect(committed.map(\.text) == ["Again", "again"])
+        // A two-word coincidence is intentionally insufficient to trim speech.
+        #expect(committed.map(\.text) == ["important point. Again", "again"])
     }
 
     @Test func `cloud policy keeps upload windows inside the PCM size cap`() {
@@ -98,19 +99,19 @@ struct OpenRouterTests {
     @Test func `cloud overlapping phrases keep new words without crushing the prior caption`() {
         let plan = ChunkPlanner.plan(duration: 360, policy: .cloudDefault)
         let first = ChunkReconciler.commit(
-            raw: [.init(start: 180, end: 210,
+            raw: [.init(start: 170, end: 190,
                         text: "Qianjin Fang is the formula, worth more than a thousand gold. So if you get it, yeah.")],
-            for: plan[3], after: [],
+            for: plan[2], after: [],
         )
         // Prefix re-hear: next phrase starts with the committed ending, then new herbs.
         let second = ChunkReconciler.commit(
             raw: [
-                .init(start: 185, end: 215,
+                .init(start: 175, end: 205,
                       text: "So if you get it, yeah. such as Ren Shen, Tang Gui, Er Jiao, those."),
-                .init(start: 215, end: 241,
+                .init(start: 205, end: 231,
                       text: "And goes to the Ming Dynasty, then there's one person is called Wang Ken Tang"),
             ],
-            for: plan[4], after: first,
+            for: plan[3], after: first,
         )
         let texts = (first + second).map(\.text)
         #expect(texts.count == 3)
@@ -119,21 +120,22 @@ struct OpenRouterTests {
         #expect(texts[1].contains("Tang Gui"))
         #expect(!texts[1].lowercased().hasPrefix("so if you get it"))
         #expect(texts[2].contains("Wang Ken Tang"))
-        #expect(second[0].start == first[0].end)
+        #expect(second[0].start == 190)
+        #expect(second[0].timingUncertain == true)
         #expect(second[1].start >= second[0].end)
     }
 
     @Test func `cloud mid sentence re-hear does not erase later clauses via short word matches`() {
         let plan = ChunkPlanner.plan(duration: 360, policy: .cloudDefault)
         let first = ChunkReconciler.commit(
-            raw: [.init(start: 180, end: 210, text: "So if you get it, yeah.")],
-            for: plan[3], after: [],
+            raw: [.init(start: 170, end: 190, text: "So if you get it, yeah.")],
+            for: plan[2], after: [],
         )
         // "yeah" appears again after new herb names — must not drop Ren Shen.
         let second = ChunkReconciler.commit(
-            raw: [.init(start: 185, end: 220,
+            raw: [.init(start: 175, end: 210,
                         text: "such as Ren Shen, Tang Gui, Er Jiao, those yeah and goes to the Ming Dynasty")],
-            for: plan[4], after: first,
+            for: plan[3], after: first,
         )
         let text = second.map(\.text).joined(separator: " ")
         #expect(text.contains("Ren Shen"))
@@ -141,7 +143,7 @@ struct OpenRouterTests {
         #expect(text.contains("Ming Dynasty"))
     }
 
-    @Test func `cloud contained phrase times never concatenate into word salad`() {
+    @Test func `cloud contained phrases stay separate and neither is discarded`() {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
         let step = ChunkReconciler.commit(
             raw: [
@@ -150,9 +152,11 @@ struct OpenRouterTests {
             ],
             for: plan[1], after: [],
         )
-        #expect(step.count == 1)
+        #expect(step.count == 2)
         #expect(step[0].text == "earliest medical expert on the leprosy")
         #expect(!step[0].text.contains("Do you remember"))
+        #expect(step[1].text == "Do you remember the king of herbs")
+        #expect(step[1].start == 50 && step[1].end == 70 && step[1].timingUncertain == true)
     }
 
     @Test func `WAV uploads are bounded mono PCM with no time compression`() throws {

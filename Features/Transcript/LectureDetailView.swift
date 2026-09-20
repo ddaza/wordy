@@ -238,6 +238,7 @@ struct LectureDetailView: View {
                         }
                     },
                     fontSize: effectiveFontSize,
+                    activeIDs: Set(playback.activeSegments.map(\.id)),
                 )
                 if let job, isPartial, job.completedThrough < lecture.duration {
                     Divider()

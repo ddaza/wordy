@@ -42,6 +42,9 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     /// Per-section engine output, already on the source timeline. Index matches
     /// committed chunks. Older documents omit this; stitching still uses `segments`.
     public private(set) var raw: [[RawSegment]]?
+    public private(set) var rawIsComplete: Bool?
+    public private(set) var captionRevision: Int?
+    public private(set) var pendingSegments: [TranscriptSegment]?
     public private(set) var detectedLanguage: String?
     public private(set) var updatedAt: Date
     public private(set) var cloudUsage: CloudUsageTotals?
@@ -57,6 +60,9 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         committedChunkCount = 0
         segments = []
         raw = []
+        rawIsComplete = true
+        captionRevision = ChunkReconciler.revision
+        pendingSegments = []
         detectedLanguage = nil
         updatedAt = now
     }
@@ -72,6 +78,12 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     /// Source time through which results are final.
     public func completedThrough(plan: [AudioChunk]) -> TimeInterval {
         guard committedChunkCount > 0, committedChunkCount <= plan.count else { return isComplete ? sourceDuration : 0 }
+        if captionRevision == ChunkReconciler.revision {
+            guard !isComplete else { return sourceDuration }
+            guard plan.indices.contains(committedChunkCount) else { return 0 }
+            return min(max(0, plan[committedChunkCount].audioStart - CaptionPipeline.decodedWindowSlack),
+                       pendingSegments?.first?.start ?? sourceDuration)
+        }
         return plan[committedChunkCount - 1].ownedEnd
     }
 
@@ -87,28 +99,26 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     /// before requesting the next chunk so a crash recomputes at most one chunk.
     public func committing(chunkIndex: Int, segments newSegments: [TranscriptSegment], detectedLanguage: String?,
                            now: Date = Date(), cloudUsage: OpenRouterUsage? = nil,
-                           replacingLastSegment: TranscriptSegment? = nil,
-                           raw newRaw: [RawSegment] = []) throws -> TranscriptCheckpoint
+                           raw newRaw: [RawSegment]? = nil) throws -> TranscriptCheckpoint
     {
+        guard pendingSegments?.isEmpty != false else { throw CheckpointError.invalidSegments }
         guard chunkIndex == committedChunkCount else {
             throw CheckpointError.chunkOutOfOrder(expected: committedChunkCount, received: chunkIndex)
         }
-        var retained = segments
-        if let replacement = replacingLastSegment {
-            guard let previous = retained.last, replacement.id == previous.id, replacement.start == previous.start else {
-                throw CheckpointError.invalidSegments
-            }
-            retained[retained.count - 1] = replacement
-        }
-        let merged = retained + newSegments
+        let merged = segments + newSegments
         _ = try TranscriptTimeline(segments: merged)
         var next = self
+        // Legacy/pre-reconciled import path. Raw omission is not recorded as
+        // known silence, and must never authorize rebuilding these captions.
+        next.captionRevision = nil
+        next.pendingSegments = nil
+        next.rawIsComplete = rawIsComplete == true && newRaw != nil
         next.segments = merged
         var collected = raw ?? []
         if collected.count < chunkIndex {
             collected.append(contentsOf: Array(repeating: [], count: chunkIndex - collected.count))
         }
-        collected.append(newRaw)
+        collected.append(newRaw ?? [])
         next.raw = collected
         next.committedChunkCount += 1
         if configuration.engineName == "OpenRouter" {
@@ -121,9 +131,141 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         return next
     }
 
+    /// Save one engine response and its revised boundary together. The caller
+    /// executes this off the main actor and persists before publishing.
+    public func committing(chunkIndex: Int, raw newRaw: [RawSegment], detectedLanguage: String?,
+                           now: Date = Date(), cloudUsage: OpenRouterUsage? = nil) throws -> TranscriptCheckpoint
+    {
+        try validate()
+        guard chunkIndex == committedChunkCount else {
+            throw CheckpointError.chunkOutOfOrder(expected: committedChunkCount, received: chunkIndex)
+        }
+        let plan = ChunkPlanner.plan(duration: sourceDuration, policy: configuration.policy)
+        guard plan.count == chunkCount, plan.indices.contains(chunkIndex) else { throw CheckpointError.invalidSegments }
+        let usable = Self.sanitizedRaw(newRaw, for: plan[chunkIndex]).usable
+        var state = CaptionPipeline.State(committed: segments, pending: pendingSegments ?? [])
+        state.append(raw: usable, chunk: plan[chunkIndex], next: plan.indices.contains(chunkIndex + 1) ? plan[chunkIndex + 1] : nil)
+        var next = self
+        next.segments = state.committed
+        next.pendingSegments = state.pending
+        next.captionRevision = ChunkReconciler.revision
+        next.rawIsComplete = hasReplayableRaw
+        var collected = raw ?? []
+        if collected.count < chunkIndex {
+            collected.append(contentsOf: Array(repeating: [], count: chunkIndex - collected.count))
+        }
+        collected.append(newRaw)
+        next.raw = collected
+        next.committedChunkCount += 1
+        next.updatedAt = now
+        if next.detectedLanguage == nil {
+            next.detectedLanguage = detectedLanguage
+        }
+        if configuration.engineName == "OpenRouter" {
+            next.cloudUsage = cloudUsageTotals.adding(cloudUsage)
+        }
+        try next.validate()
+        return next
+    }
+
+    private var cloudUsageTotals: CloudUsageTotals {
+        cloudUsage ?? CloudUsageTotals(unreportedSections: committedChunkCount)
+    }
+
+    /// Old documents padded missing raw with empty lists. Without an explicit
+    /// completeness flag, any empty list is ambiguous; leave those jobs intact.
+    public var hasReplayableRaw: Bool {
+        guard let raw, raw.count == committedChunkCount else { return false }
+        return rawIsComplete ?? raw.allSatisfy { !$0.isEmpty }
+    }
+
+    /// Playback, transcript, and search. The overlap tail stays provisional in
+    /// the checkpoint and is labeled approximate until the next section arrives.
+    /// Text export should keep using `segments`.
+    public var publishedSegments: [TranscriptSegment] {
+        segments + (pendingSegments ?? []).map { segment in
+            segment.timingUncertain == true ? segment : segment.markingUncertain()
+        }
+    }
+
+    public func repairingCaptions() throws -> TranscriptCheckpoint {
+        guard (captionRevision ?? 0) < ChunkReconciler.revision, hasReplayableRaw, let raw else { return self }
+        let plan = ChunkPlanner.plan(duration: sourceDuration, policy: configuration.policy)
+        guard plan.count == chunkCount, raw.count <= plan.count else { return self }
+        var sanitized: [[RawSegment]] = []
+        sanitized.reserveCapacity(raw.count)
+        for (index, list) in raw.enumerated() {
+            let window = Self.sanitizedRaw(list, for: plan[index])
+            if window.containsWildInterval {
+                return self
+            }
+            sanitized.append(window.usable)
+        }
+        let state = CaptionPipeline.state(plan: plan, rawByChunk: sanitized)
+        // Keep identities of unchanged passages across a local repair.
+        struct Key: Hashable { let start: Double; let end: Double; let text: String }
+        var identities: [Key: [UUID]] = [:]
+        for segment in segments + (pendingSegments ?? []) {
+            identities[Key(start: segment.start, end: segment.end, text: segment.text), default: []].append(segment.id)
+        }
+        func restore(_ segment: TranscriptSegment) -> TranscriptSegment {
+            let key = Key(start: segment.start, end: segment.end, text: segment.text)
+            guard var ids = identities[key], !ids.isEmpty else { return segment }
+            let id = ids.removeFirst()
+            identities[key] = ids
+            return .init(id: id, start: segment.start, end: segment.end, text: segment.text,
+                         timingUncertain: segment.timingUncertain == true)
+        }
+        var repaired = self
+        repaired.segments = state.committed.map(restore)
+        repaired.pendingSegments = state.pending.map(restore)
+        repaired.rawIsComplete = true
+        repaired.captionRevision = ChunkReconciler.revision
+        try repaired.validate()
+        return repaired
+    }
+
     public func validate() throws {
         guard format == Self.currentFormat else { throw CheckpointError.unsupportedFormat(format) }
+        guard sourceDuration.isFinite, sourceDuration > 0,
+              (try? ChunkPolicy(chunkSeconds: configuration.policy.chunkSeconds,
+                                overlapSeconds: configuration.policy.overlapSeconds)) != nil
+        else { throw CheckpointError.invalidSegments }
         guard committedChunkCount >= 0, committedChunkCount <= chunkCount else { throw CheckpointError.invalidSegments }
-        do { _ = try TranscriptTimeline(segments: segments) } catch { throw CheckpointError.invalidSegments }
+        do { _ = try TranscriptTimeline(segments: segments + (pendingSegments ?? [])) } catch { throw CheckpointError.invalidSegments }
+        if isComplete, !(pendingSegments ?? []).isEmpty {
+            throw CheckpointError.invalidSegments
+        }
+        if rawIsComplete == true, raw?.count != committedChunkCount {
+            throw CheckpointError.invalidSegments
+        }
+    }
+
+    private struct SanitizedRaw {
+        var usable: [RawSegment]
+        var containsWildInterval: Bool
+    }
+
+    /// Clamp ends that only overshoot the decoded window; drop phrases farther
+    /// outside it. The original engine list is still stored unchanged.
+    private static func sanitizedRaw(_ raw: [RawSegment], for chunk: AudioChunk) -> SanitizedRaw {
+        let slack = CaptionPipeline.decodedWindowSlack
+        var usable: [RawSegment] = []
+        var containsWildInterval = false
+        for segment in raw {
+            guard segment.start.isFinite, segment.end.isFinite,
+                  segment.start >= 0, segment.end > segment.start
+            else { continue }
+            if segment.start < max(0, chunk.audioStart - slack) || segment.end > chunk.audioEnd + slack {
+                containsWildInterval = true
+                continue
+            }
+            if segment.start >= chunk.audioEnd {
+                continue
+            }
+            usable.append(.init(start: segment.start, end: min(segment.end, chunk.audioEnd),
+                                text: segment.text, noSpeechProbability: segment.noSpeechProbability))
+        }
+        return SanitizedRaw(usable: usable, containsWildInterval: containsWildInterval)
     }
 }

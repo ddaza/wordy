@@ -26,7 +26,7 @@
   ],
   "expected": [
     { "start": 30, "end": 50, "text": "Earlier context about the topic" },
-    { "start": 60, "end": 90, "text": "Boundary title phrase one" },
+    { "start": 60, "end": 70, "text": "Boundary title phrase one" },
     { "start": 90, "end": 120, "text": "Next section continues" },
     { "start": 150, "end": 170, "text": "Closing remarks" }
   ]

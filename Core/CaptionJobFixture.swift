@@ -55,7 +55,7 @@ public struct CaptionJobFixture: Codable, Equatable, Sendable {
     /// Snapshot a completed (or partial) checkpoint produced by the coordinator.
     public init(name: String, checkpoint: TranscriptCheckpoint) throws {
         let raw = checkpoint.raw ?? []
-        guard raw.count == checkpoint.committedChunkCount else {
+        guard checkpoint.hasReplayableRaw, raw.count == checkpoint.committedChunkCount else {
             throw CaptionJobFixtureError.rawMissing
         }
         self.name = name

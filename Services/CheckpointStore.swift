@@ -18,7 +18,27 @@ actor CheckpointStore {
         decoder.dateDecodingStrategy = .iso8601
         let checkpoint = try decoder.decode(TranscriptCheckpoint.self, from: data)
         try checkpoint.validate()
-        return checkpoint
+        let repaired = try checkpoint.repairingCaptions()
+        guard repaired != checkpoint else { return checkpoint }
+        let backup = directory.appendingPathComponent("\(sha256).before-caption-v2.json")
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: backup.path, isDirectory: &isDirectory) {
+            guard !isDirectory.boolValue else { throw CocoaError(.fileWriteFileExists) }
+        } else {
+            try data.write(to: backup, options: [.atomic])
+        }
+        try save(repaired)
+        return repaired
+    }
+
+    /// Reconciliation and checkpoint encoding stay on the storage actor.
+    func commit(raw: [RawSegment], chunkIndex: Int, to checkpoint: TranscriptCheckpoint,
+                language: String?, usage: OpenRouterUsage? = nil) throws -> TranscriptCheckpoint
+    {
+        let next = try checkpoint.committing(chunkIndex: chunkIndex, raw: raw,
+                                             detectedLanguage: language, cloudUsage: usage)
+        try save(next)
+        return next
     }
 
     func save(_ checkpoint: TranscriptCheckpoint) throws {

@@ -49,6 +49,32 @@ private enum Clip14To20 {
 }
 
 struct CaptionClipTests {
+    @Test func `recorded phrases retain local word order and unchanged captions are never shifted`() throws {
+        let fixture = try Clip14To20.loadCloud()
+        let committed = fixture.reconcile()
+        for raw in fixture.rawByChunk.flatMap(\.self) {
+            let local = committed.filter { $0.start < raw.end && $0.end > raw.start }
+            var words = TranscriptCoverage.words(in: local).makeIterator()
+            let retainedInOrder = TranscriptCoverage.normalizedWords(raw.text).allSatisfy { word in
+                while let next = words.next() {
+                    if next == word {
+                        return true
+                    }
+                }
+                return false
+            }
+            #expect(retainedInOrder, "A recorded phrase lost ordered words in its own source interval")
+        }
+        for caption in committed {
+            let originals = fixture.rawByChunk.flatMap(\.self).filter {
+                $0.text.trimmingCharacters(in: .whitespacesAndNewlines) == caption.text && $0.end == caption.end
+            }
+            if !originals.isEmpty {
+                #expect(originals.contains { $0.start == caption.start }, "An unchanged caption moved away from its source time")
+            }
+        }
+    }
+
     @Test func `clip 14-20 stitch keeps every word some section heard`() throws {
         let gold = try Clip14To20.loadGold()
         let fixture = try Clip14To20.loadCloud()

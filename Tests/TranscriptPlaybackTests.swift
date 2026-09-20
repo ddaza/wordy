@@ -212,6 +212,29 @@
             try await eventually { abs(playback.time - 1.3) < 0.1 && playback.activeSegmentID == new.segments[1].id }
         }
 
+        @Test func `overlapping captions remain visible through seeks and contained phrase endings`() async throws {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).wav")
+            defer { try? FileManager.default.removeItem(at: url) }
+            try writeSilence(to: url)
+            let timeline = try TranscriptTimeline(segments: [
+                .init(start: 0.2, end: 3, text: "Long phrase."),
+                .init(start: 1, end: 2, text: "Distinct contained phrase.", timingUncertain: true),
+            ])
+            let playback = PlaybackController()
+            defer { playback.shutdown() }
+            playback.volume = 0
+            playback.load(url: url, duration: 4, timeline: timeline)
+            playback.seek(to: 1.4)
+            try await eventually { playback.activeSegments.count == 2 }
+            #expect(playback.activeSegments.map(\.id) == timeline.segments.map(\.id))
+            playback.seek(to: 2.3)
+            try await eventually { playback.activeSegments.map(\.id) == [timeline.segments[0].id] }
+            playback.seek(to: 3.4)
+            try await eventually { playback.time > 3 && playback.activeSegments.isEmpty }
+            playback.seek(to: 1.4)
+            try await eventually { playback.activeSegments.count == 2 }
+        }
+
         private func eventually(_ condition: () -> Bool) async throws {
             let deadline = ContinuousClock.now.advanced(by: .seconds(5))
             while !condition(), ContinuousClock.now < deadline {

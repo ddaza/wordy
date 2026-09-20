@@ -7,7 +7,11 @@ final class PlaybackController {
     private(set) var duration: TimeInterval = 0
     private(set) var isPlaying = false
     private(set) var hasAudio = false
-    private(set) var activeSegmentID: UUID?
+    private(set) var activeSegments: [TranscriptSegment] = []
+    var activeSegmentID: UUID? {
+        activeSegments.last?.id
+    }
+
     var speed: Float = 1 {
         didSet {
             if isPlaying {
@@ -109,9 +113,9 @@ final class PlaybackController {
     private func updateTime(_ value: TimeInterval) {
         guard value.isFinite else { return }
         time = max(0, value)
-        let id = hasAudio ? timeline.activeSegment(at: time)?.id : nil
-        if activeSegmentID != id {
-            activeSegmentID = id
+        let active = hasAudio ? timeline.activeSegments(at: time) : []
+        if activeSegments != active {
+            activeSegments = active
         }
     }
 

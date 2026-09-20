@@ -42,6 +42,15 @@ import Testing
             .init(start: 0, end: 10, text: ""), .init(start: 5, end: 15, text: ""),
         ])
     }
+    let unmarked = [
+        TranscriptSegment(start: 0, end: 3, text: "Long phrase."),
+        TranscriptSegment(start: 1, end: 2, text: "Distinct contained phrase."),
+    ]
+    #expect(throws: TranscriptTimeline.ValidationError.self) { try TranscriptTimeline(segments: unmarked) }
+    let presented = TranscriptTimeline.presenting(unmarked)
+    #expect(presented.timeline.activeSegments(at: 1.5).map(\.text) == unmarked.map(\.text))
+    #expect(presented.segments[1].timingUncertain == true)
+    #expect(TranscriptTimeline.presenting([.init(start: 0, end: .nan, text: "x")]).timeline.segments.isEmpty)
     let id = UUID()
     #expect(throws: TranscriptTimeline.ValidationError.self) {
         try TranscriptTimeline(segments: [
