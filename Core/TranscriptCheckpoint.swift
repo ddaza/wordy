@@ -39,6 +39,9 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     public let chunkCount: Int
     public private(set) var committedChunkCount: Int
     public private(set) var segments: [TranscriptSegment]
+    /// Per-section engine output, already on the source timeline. Index matches
+    /// committed chunks. Older documents omit this; stitching still uses `segments`.
+    public private(set) var raw: [[RawSegment]]?
     public private(set) var detectedLanguage: String?
     public private(set) var updatedAt: Date
     public private(set) var cloudUsage: CloudUsageTotals?
@@ -53,6 +56,7 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         self.chunkCount = chunkCount
         committedChunkCount = 0
         segments = []
+        raw = []
         detectedLanguage = nil
         updatedAt = now
     }
@@ -83,7 +87,8 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     /// before requesting the next chunk so a crash recomputes at most one chunk.
     public func committing(chunkIndex: Int, segments newSegments: [TranscriptSegment], detectedLanguage: String?,
                            now: Date = Date(), cloudUsage: OpenRouterUsage? = nil,
-                           replacingLastSegment: TranscriptSegment? = nil) throws -> TranscriptCheckpoint
+                           replacingLastSegment: TranscriptSegment? = nil,
+                           raw newRaw: [RawSegment] = []) throws -> TranscriptCheckpoint
     {
         guard chunkIndex == committedChunkCount else {
             throw CheckpointError.chunkOutOfOrder(expected: committedChunkCount, received: chunkIndex)
@@ -99,6 +104,12 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
         _ = try TranscriptTimeline(segments: merged)
         var next = self
         next.segments = merged
+        var collected = raw ?? []
+        if collected.count < chunkIndex {
+            collected.append(contentsOf: Array(repeating: [], count: chunkIndex - collected.count))
+        }
+        collected.append(newRaw)
+        next.raw = collected
         next.committedChunkCount += 1
         if configuration.engineName == "OpenRouter" {
             next.cloudUsage = (self.cloudUsage ?? CloudUsageTotals(unreportedSections: committedChunkCount)).adding(cloudUsage)

@@ -32,6 +32,24 @@ import Testing
     #expect(plan.last?.ownedDuration == 65)
 }
 
+@Test func `overlap seconds sets how many boundary words can stitch`() throws {
+    #expect(ChunkPolicy.default.boundaryWordBudget == 4)
+    #expect(try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 5).boundaryWordBudget == 6)
+    #expect(ChunkPolicy.cloudDefault.boundaryWordBudget == 13)
+    let tight = ChunkPlanner.plan(duration: 120, policy: .default)
+    let mid = try ChunkPlanner.plan(duration: 120, policy: ChunkPolicy(chunkSeconds: 60, overlapSeconds: 5))
+    let wide = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
+    let first = [TranscriptSegment(start: 50, end: 62, text: "We define the limit as h goes to zero")]
+    let reheard = [RawSegment(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient.")]
+    // Five shared words; 3 s may drop four of them, 5 s and 10 s drop the whole match.
+    let local = ChunkReconciler.commit(raw: reheard, for: tight[1], isLast: true, after: first)
+    let five = ChunkReconciler.commit(raw: reheard, for: mid[1], isLast: true, after: first)
+    let cloud = ChunkReconciler.commit(raw: reheard, for: wide[1], isLast: true, after: first)
+    #expect(local.first?.text == "zero of the difference quotient.")
+    #expect(five.first?.text == "of the difference quotient.")
+    #expect(cloud.first?.text == "of the difference quotient.")
+}
+
 @Test func `chunk policy rejects unusable values`() {
     #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 1, overlapSeconds: 0) }
     #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 30, overlapSeconds: 15) }
@@ -76,17 +94,16 @@ import Testing
     _ = try TranscriptTimeline(segments: first + second)
 }
 
-@Test func `disagreeing boundary transcripts are trimmed in proportion to committed time`() throws {
+@Test func `disagreeing boundary transcripts keep new words and only clamp time`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)
     let first = ChunkReconciler.commit(raw: [
         .init(start: 50, end: 62, text: "alpha beta gamma delta"),
     ], for: plan[0], isLast: false, after: [])
-    // 58–66: half of this segment lies inside committed time and shares no words.
     let second = ChunkReconciler.commit(raw: [
         .init(start: 58, end: 66, text: "one two three four five six seven eight"),
     ], for: plan[1], isLast: true, after: first)
-    #expect(second.first?.text == "five six seven eight")
+    #expect(second.first?.text == "one two three four five six seven eight")
     #expect(second.first?.start == 62)
     #expect(second.first?.end == 66)
 }
@@ -101,7 +118,7 @@ import Testing
         .init(start: 60.5, end: 66, text: "as h goes to zero of the difference quotient."),
     ], for: plan[1], isLast: true, after: first)
     #expect(second.count == 1)
-    #expect(second.first?.text == "of the difference quotient.")
+    #expect(second.first?.text == "zero of the difference quotient.")
     #expect(second.first?.start == 62)
     _ = try TranscriptTimeline(segments: first + second)
 }
@@ -143,7 +160,10 @@ import Testing
     #expect(checkpoint.nextChunkIndex == 0)
     #expect(checkpoint.completedThrough(plan: plan) == 0)
 
-    checkpoint = try checkpoint.committing(chunkIndex: 0, segments: [.init(start: 1, end: 5, text: "a")], detectedLanguage: "en")
+    checkpoint = try checkpoint.committing(chunkIndex: 0, segments: [.init(start: 1, end: 5, text: "a")],
+                                           detectedLanguage: "en", raw: [.init(start: 0.5, end: 5, text: "heard a")])
+    #expect(checkpoint.raw?.count == 1)
+    #expect(checkpoint.raw?.first?.first?.text == "heard a")
     #expect(checkpoint.completedThrough(plan: plan) == 60)
     #expect(throws: TranscriptCheckpoint.CheckpointError.self) {
         try checkpoint.committing(chunkIndex: 2, segments: [], detectedLanguage: nil)

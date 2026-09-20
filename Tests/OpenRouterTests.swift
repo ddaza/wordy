@@ -65,7 +65,7 @@ struct OpenRouterTests {
         #expect(policy.maximumAudioSeconds <= 80)
         let plan = ChunkPlanner.plan(duration: 360, policy: policy)
         #expect(plan.allSatisfy { $0.audioDuration <= 80 })
-        #expect(plan.count > 6) // denser than legacy 60s+3s on a 6-minute clip
+        #expect(plan.count == 6) // 60 s owned on a 6-minute clip
         #expect(OpenRouterModel.whisperLargeV3.configuration.policy == policy)
     }
 

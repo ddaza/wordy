@@ -39,7 +39,7 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Use the player's media clock as the caption source of truth; do not use a separately advancing wall-clock timer.
 - Use stable segment identity and ordered absolute source timestamps. Handle gaps, seeks, variable speed, and end-of-file explicitly.
 - Phrase captions are required. Treat word timing as optional until validated; do not imply experimental timing is exact.
-- Reconcile chunk overlap without dropping intentional repetition or duplicating words.
+- Reconcile chunk overlap without dropping intentional repetition or duplicating words. See `docs/caption-pipeline.md` for the current stitch, isolation (gold vs raw vs committed), and rejected alternatives.
 - Persist completed results, their search updates, and checkpoints atomically.
 - Treat changed source audio as a new transcript generation.
 - Search must map hits back to playable timestamps and account for phrases across caption/chunk boundaries.
@@ -58,7 +58,7 @@ User instructions and accepted decisions take precedence over this guidance. Kee
 - Advanced Mode: store the OpenRouter API key in Keychain; require per-job consent before upload; normalize cloud segments into the same timestamped schema as local jobs; do not log keys, audio, or transcript contents.
 - Do not log audio, transcript contents, tokens, or signed download URLs. Use redacted identifiers and timing metrics for diagnostics.
 - Do not add telemetry or crash reporting that could carry transcript text or recording identifiers.
-- Do not commit private lecture fixtures, credentials, model weights, or generated artifacts.
+- Do not commit private lecture audio, checkpoints, credentials, model weights, or generated artifacts. Synthetic caption fixtures in `Tests/Fixtures/` are the committed functional tests; snapshot them from a `TranscriptCheckpoint` or write the same schema.
 
 ## Implementation workflow
 

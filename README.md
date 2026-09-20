@@ -111,7 +111,7 @@ make release        # re-verify the disk images, git push, gh release create
 | `Config/` | App and worker property lists, plus `Version.xcconfig` (marketing version and build number). |
 | `Tests/` | Timing, search, chunking, reconciliation, checkpoint, bookmarks, digest, and message tests. |
 | `LICENSE`, `THIRD_PARTY_NOTICES.md` | MIT license for Wordy and notices for bundled dependencies (`whisper.cpp`/ggml, speech models). |
-| `docs/` | Scaffold record, inference/engine documentation, benchmark records, development assets. |
+| `docs/` | Scaffold record, inference/engine documentation, caption stitch notes, benchmark records, development assets. |
 | `assets/` | Git-ignored local recordings and model files for deliberate manual and performance checks. |
 
 `make test` also exercises the real AVPlayer and AppKit transcript view with synthetic audio, including bookmark seeks after transcript replacement, silence gaps, repeated reveals, and highlight updates during incremental transcription. Bookmark storage tests cover persisted label edits and recording isolation. These macOS integration tests are excluded from `make test-core`.
@@ -124,4 +124,4 @@ Milestone 2: GRDB schema and migrations replacing the JSON checkpoint and bookma
 
 Advanced Mode was brought forward by user request and is implemented before the remaining Milestone 2 work. Enable it in **Wordy → Settings → Advanced Mode**, save your OpenRouter API key, click **Use** beside a cloud model, then choose **Transcribe with OpenRouter…** in a recording. Review the recording/model and choose **Upload and Transcribe**. A local speech model is not required for cloud jobs. See [docs/cloud-transcription.md](docs/cloud-transcription.md) for recovery, privacy boundaries, and validation limits.
 
-See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, [docs/inference.md](docs/inference.md) for the engine, worker protocol, checkpoint design, and benchmark procedure, [docs/scaffold.md](docs/scaffold.md) for the original scaffold record, and [docs/development-assets.md](docs/development-assets.md) for local fixtures.
+See [PLAN.md](PLAN.md) for milestones and acceptance targets, [AGENTS.md](AGENTS.md) for contributor guidance, [docs/inference.md](docs/inference.md) for the engine, worker protocol, checkpoint design, and benchmark procedure, [docs/caption-pipeline.md](docs/caption-pipeline.md) for raw engine lists and overlap stitching, [docs/scaffold.md](docs/scaffold.md) for the original scaffold record, and [docs/development-assets.md](docs/development-assets.md) for local fixtures.

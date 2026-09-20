@@ -350,7 +350,7 @@ Implementation progress (2026-09-17): Settings toggle and Keychain storage, Whis
 
 UX and usage follow-up (2026-09-18): Advanced Mode is prominent near the top of Settings. Cloud models have Use buttons gated on a saved key, with persistent Keychain-save confirmation. One explicit local/cloud selection drives new jobs and Transcribe Again; running jobs retain their original model and confirmations bind the displayed model. Cloud-selected imports wait for consent. Recording UI identifies both the selection and the actual job model. API-reported USD cost, tokens, and observed section rate are checkpointed with each saved section; absent usage remains unknown and no catalog rate is assumed.
 
-Chunking fix (2026-09-18): Cloud jobs no longer use the local 60 s + 3 s policy. OpenRouter Whisper returns coarse ~30 s phrases; with only 3 s of overlap, phrases that start on an owned boundary were dropped and the next section often resumed mid-sentence (missing titles/clauses on a consented clip vs a single-upload reference). Cloud now uses `ChunkPolicy.cloudDefault` (50 s + 15 s, decoded ≤ 80 s for the PCM size cap). `CloudCaptionReconciler` also caps boundary word dedupe like local inference. Re-transcribe existing cloud jobs to pick up the new policy.
+Chunking isolation (2026-09-19): Each checkpoint stores the engine `raw` lists alongside committed captions. Local and cloud share one overlap stitch. Functional tests fold committed `Tests/Fixtures/*.json` (`CaptionJobFixture`) through `CaptionPipeline`. See `docs/caption-pipeline.md`.
 
 Remaining validation: deliberate live API/Keychain GUI walkthrough, consented long cloud recording, and physical Intel/M1 responsiveness. The automated suite uses synthetic audio and intercepted HTTP; implementation does not imply that these live/hardware acceptance criteria have passed. Deepgram remains excluded. Pricing is not hard-coded; consent links to the selected model's current pricing.
 
@@ -403,7 +403,7 @@ This is a proposed layout, not a claim that these files or targets already exist
 - Priority languages and representative recordings.
 - File selection versus automatic watched-folder discovery for the first release.
 - Default model/quantization and transcription-speed gates for each hardware tier (M4 Max evidence recorded; M1 outstanding; Intel field RTF ~2.9× on `base` recorded informally — capture a full `docs/benchmarks/` matrix).
-- Chunk boundary reconciliation: start-based attribution with word-match or time-proportional trimming was chosen after midpoint attribution dropped straddling sentences; revisit if word-level timestamps are validated.
+- Chunk boundary reconciliation: start-based attribution with a suffix/prefix stitch capped by overlap seconds; see `docs/caption-pipeline.md`. Time-proportional deletion was removed after it dropped distinct formula lists.
 - Word highlighting quality threshold and whether alignment work is worthwhile.
 - Whether Advanced Mode ships before Google Drive for the first public build aimed at older Macs.
 - Which OpenRouter STT models appear in the Advanced Mode picker beyond the provisional `openai/whisper-large-v3` default.

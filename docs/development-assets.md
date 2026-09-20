@@ -12,6 +12,6 @@ The entire `assets/` directory is ignored by Git. Recordings placed there are pr
 
 A useful fixture is a real classroom recording of roughly 1.5–2 hours in a common compressed format (MP3/AAC), because it exercises long-file playback, streaming SHA-256 calculation, transcription throughput, caption synchronization, cancellation, and checkpoint/recovery. Treat the original as read-only.
 
-CI and automated tests must not assume such a file exists. Routine tests use small synthetic fixtures; long-running checks against a local recording are invoked deliberately (`make bench`, `scripts/bench-matrix.sh`).
+CI and automated tests must not assume such a file exists. Routine tests use small synthetic fixtures; long-running checks against a local recording are invoked deliberately (`make bench`, `scripts/bench-matrix.sh`). Caption stitch tests load committed JSON from `Tests/Fixtures/` and fold it through `CaptionPipeline` — the same types as a real job. To add a case, snapshot a `TranscriptCheckpoint` (`CaptionJobFixture(name:checkpoint:)`) or write that schema with synthetic text. Do not capture windows with a side script or point tests at `assets/`. See `docs/caption-pipeline.md`.
 
 When recording benchmark results under `docs/benchmarks/`, describe the corpus only by duration, format, and bit rate, and record the hardware, macOS version, engine/model configuration, build configuration, and measurement conditions. Do not include the recording's file name, hash, or content.

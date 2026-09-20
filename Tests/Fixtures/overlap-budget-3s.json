@@ -1,0 +1,23 @@
+{
+  "name": "overlap-budget-3s",
+  "duration": 120,
+  "policy": { "chunkSeconds": 60, "overlapSeconds": 3 },
+  "chunks": [
+    {
+      "index": 0,
+      "raw": [
+        { "start": 50, "end": 62, "text": "We define the limit as h goes to zero" }
+      ]
+    },
+    {
+      "index": 1,
+      "raw": [
+        { "start": 57.5, "end": 66, "text": "as h goes to zero of the difference quotient." }
+      ]
+    }
+  ],
+  "expected": [
+    { "start": 50, "end": 62, "text": "We define the limit as h goes to zero" },
+    { "start": 62, "end": 66, "text": "zero of the difference quotient." }
+  ]
+}

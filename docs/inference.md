@@ -57,20 +57,15 @@ Non-speech token suppression (`suppress_nst`) and blank suppression are on; brac
 
 ## Chunking and reconciliation
 
-`ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk.
+`ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s.
 
-`ChunkReconciler.commit` (`Core/ChunkReconciler.swift`):
-
-1. Drops malformed intervals and non-speech markers.
-2. Attributes each raw segment to the chunk owning its midpoint, so overlap speech is committed exactly once.
-3. Where an incoming segment overlaps the previously committed segment in time, removes up to 8 duplicated boundary words (normalized case/punctuation) and clamps its start to the previous end. Repetition anywhere else is untouched by construction; `Tests/ChunkPipelineTests.swift` covers both cases.
-4. Guarantees the committed list validates as a `TranscriptTimeline`.
+`ChunkReconciler.commit` attributes a raw segment to the chunk that heard it *start*, then stitches a re-hear by dropping at most the overlap word budget (about 3–4 words at 3 s). Checkpoints store per-section engine `raw` beside committed captions. The current rule, isolation method, and rejected alternatives (midpoint attribution, time-proportional deletion, a separate capture script, 50 s + 15 s cloud windows) are in `docs/caption-pipeline.md`.
 
 Word-level timing is not requested yet; captions remain phrase-level. Carrying decoder context between chunks (`initial_prompt`) is not enabled.
 
 ## Checkpoints and recovery
 
-`TranscriptCheckpoint` (`Core/TranscriptCheckpoint.swift`) records the audio SHA-256, source duration, `TranscriptionConfiguration` (engine, version, model, language, policy), chunk count, committed chunk count, and committed segments. Chunks commit strictly in order; committing out of order or producing an overlapping timeline throws before anything is persisted.
+`TranscriptCheckpoint` (`Core/TranscriptCheckpoint.swift`) records the audio SHA-256, source duration, `TranscriptionConfiguration` (engine, version, model, language, policy), chunk count, committed chunk count, committed segments, and optional per-section `raw` engine output. Chunks commit strictly in order; committing out of order or producing an overlapping timeline throws before anything is persisted.
 
 `Services/CheckpointStore.swift` writes `<Application Support>/Wordy/Transcripts/<sha256>.json` through a temporary sibling and `replaceItemAt`, so a crash mid-write leaves the previous checkpoint intact. `TranscriptionCoordinator` persists the checkpoint *before* publishing new segments to the UI, then requests the next chunk. Consequences:
 

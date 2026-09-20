@@ -1,0 +1,33 @@
+{
+  "name": "cloud-phrase-on-owned-edge",
+  "duration": 180,
+  "policy": { "chunkSeconds": 60, "overlapSeconds": 10 },
+  "chunks": [
+    {
+      "index": 0,
+      "raw": [
+        { "start": 30, "end": 50, "text": "Earlier context about the topic" },
+        { "start": 60, "end": 70, "text": "Boundary title phrase one" }
+      ]
+    },
+    {
+      "index": 1,
+      "raw": [
+        { "start": 60, "end": 90, "text": "Boundary title phrase one" },
+        { "start": 90, "end": 120, "text": "Next section continues" }
+      ]
+    },
+    {
+      "index": 2,
+      "raw": [
+        { "start": 150, "end": 170, "text": "Closing remarks" }
+      ]
+    }
+  ],
+  "expected": [
+    { "start": 30, "end": 50, "text": "Earlier context about the topic" },
+    { "start": 60, "end": 90, "text": "Boundary title phrase one" },
+    { "start": 90, "end": 120, "text": "Next section continues" },
+    { "start": 150, "end": 170, "text": "Closing remarks" }
+  ]
+}

@@ -351,7 +351,8 @@ final class TranscriptionCoordinator {
                                                               isLast: index == plan.count - 1, after: checkpoint.segments)
                 checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed.segments,
                                                        detectedLanguage: result.language, cloudUsage: result.usage,
-                                                       replacingLastSegment: committed.replacingLastSegment)
+                                                       replacingLastSegment: committed.replacingLastSegment,
+                                                       raw: result.segments)
                 do { try await store.save(checkpoint) }
                 catch { throw OpenRouterError.storage }
                 jobs[lectureID]?.cloudRestartPending = false
@@ -509,7 +510,8 @@ final class TranscriptionCoordinator {
                 let committed = ChunkReconciler.commit(raw: result.segments, for: chunk,
                                                        isLast: index == plan.count - 1, after: checkpoint.segments)
                 checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed,
-                                                       detectedLanguage: result.detectedLanguage)
+                                                       detectedLanguage: result.detectedLanguage,
+                                                       raw: result.segments)
                 try await store.save(checkpoint)
                 publish(lectureID, checkpoint: checkpoint, plan: plan)
 

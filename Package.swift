@@ -7,6 +7,11 @@ let package = Package(
     products: [.library(name: "WordyCore", targets: ["WordyCore"])],
     targets: [
         .target(name: "WordyCore", path: "Core", resources: [.copy("SpeechModels.json")]),
-        .testTarget(name: "WordyCoreTests", dependencies: ["WordyCore"], path: "Tests"),
+        .testTarget(
+            name: "WordyCoreTests",
+            dependencies: ["WordyCore"],
+            path: "Tests",
+            resources: [.copy("Fixtures")],
+        ),
     ],
 )

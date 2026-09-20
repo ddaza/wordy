@@ -1,0 +1,26 @@
+{
+  "name": "synthetic-seam-formulas",
+  "duration": 120,
+  "policy": { "chunkSeconds": 60, "overlapSeconds": 10 },
+  "chunks": [
+    {
+      "index": 0,
+      "raw": [
+        { "start": 0, "end": 20, "text": "Qianjin Fang is the formula, a thousand gold." },
+        { "start": 50, "end": 64, "text": "So if you get it, yeah, such as Ren Shen" }
+      ]
+    },
+    {
+      "index": 1,
+      "raw": [
+        { "start": 54, "end": 78, "text": "such as Ren Shen, Tang Gui, Er Jiao, those." },
+        { "start": 78, "end": 100, "text": "And goes to the Ming Dynasty." }
+      ]
+    }
+  ],
+  "expected": [
+    { "start": 0, "end": 20, "text": "Qianjin Fang is the formula, a thousand gold." },
+    { "start": 50, "end": 78, "text": "So if you get it, yeah, such as Ren Shen, Tang Gui, Er Jiao, those." },
+    { "start": 78, "end": 100, "text": "And goes to the Ming Dynasty." }
+  ]
+}

@@ -22,12 +22,13 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
     /// Provisional default until the Milestone 1 benchmark settles the policy.
     public static let `default` = try! ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
 
-    /// OpenRouter Whisper emits coarse ~30 s phrases. A 3 s overlap (local default)
-    /// leaves a dead zone at each owned boundary: the previous section drops
-    /// phrases that start on the boundary, and the next section's decoder grid
-    /// often resumes mid-sentence. Keep the decoded window ≤ 80 s so 16-bit PCM
-    /// WAV uploads stay under the 3 MiB adapter limit (80 × 16 kHz × 2 B).
-    public static let cloudDefault = try! ChunkPolicy(chunkSeconds: 50, overlapSeconds: 15)
+    /// OpenRouter Whisper emits coarse ~30 s phrases. Keep the same 60 s owned
+    /// stride as local jobs so seams are not denser than the provider grid, but
+    /// use 10 s of overlap (local uses 3 s) so a phrase that starts on a boundary
+    /// is still heard whole. Decoded window stays at 80 s for the 3 MiB PCM cap.
+    /// A 50 s stride was tried and placed seams through mid-sentence formula
+    /// lists (e.g. herb names around 3:20 on a sample clip).
+    public static let cloudDefault = try! ChunkPolicy(chunkSeconds: 60, overlapSeconds: 10)
 
     public var label: String {
         "\(Int(chunkSeconds))s+\(Int(overlapSeconds))s"
@@ -36,6 +37,18 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
     /// Peak decoded seconds for a middle section, including both overlaps.
     public var maximumAudioSeconds: TimeInterval {
         chunkSeconds + 2 * overlapSeconds
+    }
+
+    /// How many leading words the reconciler may drop when a chunk re-hears
+    /// the previous caption. About 3–4 words for a 3 s local overlap; longer
+    /// overlap may drop more. Spoken English is treated as roughly 1.25 words/s.
+    public var boundaryWordBudget: Int {
+        Self.boundaryWordBudget(overlapSeconds: overlapSeconds)
+    }
+
+    public static func boundaryWordBudget(overlapSeconds: TimeInterval) -> Int {
+        guard overlapSeconds.isFinite, overlapSeconds > 0 else { return 1 }
+        return max(1, Int((overlapSeconds * 1.25).rounded(.toNearestOrAwayFromZero)))
     }
 }
 
@@ -66,6 +79,12 @@ public struct AudioChunk: Codable, Hashable, Sendable, Identifiable {
 
     public var audioDuration: TimeInterval {
         audioEnd - audioStart
+    }
+
+    /// Leading overlap for this section: audio heard before owned time, used
+    /// to size boundary-word matching against the previous section.
+    public var leadingOverlapSeconds: TimeInterval {
+        max(0, ownedStart - audioStart)
     }
 }
 
