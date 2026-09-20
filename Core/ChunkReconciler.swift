@@ -15,68 +15,126 @@ public struct RawSegment: Codable, Equatable, Sendable {
     }
 }
 
-/// Turns raw chunk output into committed, monotonic segments.
-///
-/// Chunks do not drop phrases. Every well-formed raw interval is offered to
-/// the stitch in order. A later section's re-hearing is trimmed only when a
-/// prefix of its text exactly matches a suffix of the previous caption. The
-/// match may be longer than the overlap; at most `boundaryWordBudget` leading
-/// words are dropped (about 3–4 at 3 s, more at 5–10 s). Time overlap alone
-/// never deletes distinct words.
+/// Reconciles text only against the preceding section's time-local phrases.
+/// Distinct speech keeps its source interval, even when the engine's coarse
+/// times conflict. Such intervals are explicitly marked uncertain, not moved
+/// later or discarded. There is no words-per-second deletion allowance.
 public enum ChunkReconciler {
+    public static let revision = 2
+
+    private struct TokenID: Hashable {
+        let segmentID: UUID
+        let offset: Int
+    }
+
+    /// Additions before sorting with the existing boundary. Production callers
+    /// use reconcile so incoming phrases can precede a previous trailing cue.
     public static func commit(raw: [RawSegment], for chunk: AudioChunk,
                               after committed: [TranscriptSegment]) -> [TranscriptSegment]
     {
-        var previousEnd = committed.last?.end ?? 0
-        var previousWords = committed.last.map { normalizedWords($0.text) } ?? []
+        let boundary = committed.filter { $0.end > chunk.audioStart - 0.25 }
+        let candidates = raw.enumerated().filter {
+            $0.element.start.isFinite && $0.element.end.isFinite
+                && $0.element.start >= 0 && $0.element.end > $0.element.start
+        }.sorted {
+            $0.element.start == $1.element.start ? $0.offset < $1.offset : $0.element.start < $1.element.start
+        }
         var result: [TranscriptSegment] = []
-        let budget = ChunkPolicy.boundaryWordBudget(overlapSeconds: chunk.leadingOverlapSeconds)
-
-        let candidates = raw
-            .filter { $0.start.isFinite && $0.end.isFinite && $0.end > $0.start }
-            .sorted { $0.start < $1.start }
-
-        for candidate in candidates {
+        var consumed = Set<TokenID>()
+        for (_, candidate) in candidates {
             var text = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty, !isNonSpeechMarker(text) else { continue }
-            guard candidate.end > previousEnd else { continue }
-            var start = candidate.start
-            if start < previousEnd {
-                let incoming = normalizedWords(text)
-                let match = sharedBoundaryWords(trailing: previousWords, leading: incoming)
-                let overlap = min(match, budget)
-                if overlap > 0 {
-                    text = dropLeadingWords(overlap, from: text)
+            let overlapping = boundary.filter { $0.start < candidate.end && $0.end > candidate.start }
+            let words = normalizedWords(text)
+            // Match whole incoming phrases, or an incoming prefix against the
+            // preceding suffix. Never erase text before a mid-string anchor.
+            let contextTokens = overlapping.flatMap { segment in
+                normalizedWords(segment.text).enumerated().map {
+                    (id: TokenID(segmentID: segment.id, offset: $0.offset), word: $0.element, end: segment.end)
                 }
-                guard !text.isEmpty else { continue }
-                start = previousEnd
             }
-            var end = max(candidate.end, start)
-            if end <= start {
-                end = start + 0.1
+            // A previous occurrence can explain only one incoming occurrence.
+            // Keep consumed slots as barriers so separate matches cannot join.
+            let context = contextTokens.map { consumed.contains($0.id) ? "\u{0}" : $0.word }
+            var trimmed = false
+            var start = candidate.start
+            if !words.isEmpty, !context.isEmpty {
+                let exactInterval = overlapping.contains {
+                    abs($0.start - candidate.start) < 0.05 && abs($0.end - candidate.end) < 0.05
+                        && normalizedWords($0.text) == words
+                }
+                let strongPhrase = words.count >= 3 && Set(words).count >= 2
+                if exactInterval || strongPhrase, let range = firstMatch(context, phrase: words) {
+                    consumed.formUnion(contextTokens[range].map(\.id))
+                    continue
+                }
+                let match = sharedBoundaryWords(trailing: context, leading: words)
+                // Short/common-word coincidences and "again again" are not
+                // enough evidence to remove deliberate repeated speech.
+                let matchedEnd = contextTokens.last?.end ?? candidate.start
+                if match >= 3, Set(words.prefix(match)).count >= 2, matchedEnd < candidate.end {
+                    consumed.formUnion(contextTokens.suffix(match).map(\.id))
+                    text = dropLeadingWords(match, from: text)
+                    trimmed = true
+                    // Only a matching preceding phrase supplies evidence for
+                    // this boundary. Never apply this to disagreeing text.
+                    start = matchedEnd
+                }
             }
-            let segment = TranscriptSegment(start: start, end: end, text: text)
-            result.append(segment)
-            previousEnd = end
-            previousWords = normalizedWords(text)
+            guard !text.isEmpty else { continue }
+            let overlapInSection = result.contains { $0.start < candidate.end && $0.end > candidate.start }
+            result.append(.init(start: start, end: candidate.end, text: text,
+                                timingUncertain: trimmed || !overlapping.isEmpty || overlapInSection))
         }
         return result
     }
 
-    static func normalizedWords(_ text: String) -> [String] {
-        text.lowercased()
-            .components(separatedBy: .whitespacesAndNewlines)
-            .map { $0.trimmingCharacters(in: .punctuationCharacters.union(.symbols)) }
-            .filter { !$0.isEmpty }
+    /// Returns the revised boundary, preserving IDs and unmatched source times.
+    /// The checkpoint passes only its bounded provisional tail here.
+    public static func reconcile(raw: [RawSegment], for chunk: AudioChunk,
+                                 after committed: [TranscriptSegment]) -> [TranscriptSegment]
+    {
+        let added = commit(raw: raw, for: chunk, after: committed)
+        var merged = (committed + added).enumerated().sorted {
+            $0.element.start == $1.element.start ? $0.offset < $1.offset : $0.element.start < $1.element.start
+        }.map(\.element)
+        var end: TimeInterval = 0
+        for index in merged.indices {
+            if merged[index].start < end {
+                merged[index] = merged[index].markingUncertain()
+            }
+            end = max(end, merged[index].end)
+        }
+        return merged
     }
 
-    /// Length of the longest suffix of `trailing` equal to a prefix of `leading`.
-    static func sharedBoundaryWords(trailing: [String], leading: [String],
-                                    limit: Int = .max) -> Int
-    {
-        let limit = min(max(limit, 1), trailing.count, leading.count)
+    static func normalizedWords(_ text: String) -> [String] {
+        tokens(text).map(\.word)
+    }
+
+    private static func tokens(_ text: String) -> [(word: String, end: String.Index)] {
+        text.split(whereSeparator: \.isWhitespace).compactMap { token in
+            let word = token.lowercased().trimmingCharacters(in: .punctuationCharacters.union(.symbols))
+            return word.isEmpty ? nil : (word, token.endIndex)
+        }
+    }
+
+    private static func firstMatch(_ words: [String], phrase: [String]) -> Range<Int>? {
+        guard !phrase.isEmpty, words.count >= phrase.count else { return nil }
+        for start in 0 ... words.count - phrase.count {
+            let range = start ..< start + phrase.count
+            if words[range].elementsEqual(phrase) {
+                return range
+            }
+        }
+        return nil
+    }
+
+    static func sharedBoundaryWords(trailing: [String], leading: [String]) -> Int {
+        let limit = min(trailing.count, leading.count)
+        guard limit > 0 else { return 0 }
         for length in stride(from: limit, through: 1, by: -1) {
-            if Array(trailing.suffix(length)) == Array(leading.prefix(length)) {
+            if trailing.suffix(length).elementsEqual(leading.prefix(length)) {
                 return length
             }
         }
@@ -84,23 +142,24 @@ public enum ChunkReconciler {
     }
 
     static func dropLeadingWords(_ count: Int, from text: String) -> String {
-        var remaining = count
-        var scalars = Substring(text)
-        while remaining > 0 {
-            scalars = scalars.drop { $0.isWhitespace }
-            guard let wordEnd = scalars.firstIndex(where: \.isWhitespace) else { return "" }
-            scalars = scalars[wordEnd...]
-            remaining -= 1
-        }
-        return scalars.trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = tokens(text)
+        guard count > 0 else { return text }
+        guard count < words.count else { return "" }
+        return text[words[count - 1].end...].trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Whisper emits bracketed markers for music, applause, or blank audio.
-    /// They are not lecture content and must not become captions.
+    /// Match known whole markers, not every parenthesized spoken sentence.
     static func isNonSpeechMarker(_ text: String) -> Bool {
-        guard let first = text.first, let last = text.last else { return true }
-        let opens: Set<Character> = ["[", "(", "*", "♪"]
-        let closes: Set<Character> = ["]", ")", "*", "♪"]
-        return opens.contains(first) && closes.contains(last)
+        let marker = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let names: Set = ["blank_audio", "silence", "music", "applause", "laughter", "inaudible"]
+        if marker == "♪" || marker == "♫" {
+            return true
+        }
+        for (open, close) in [("[", "]"), ("(", ")"), ("*", "*"), ("♪", "♪")] {
+            if marker.hasPrefix(open), marker.hasSuffix(close), marker.count > 2 {
+                return names.contains(String(marker.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces))
+            }
+        }
+        return false
     }
 }

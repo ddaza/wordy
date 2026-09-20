@@ -19,6 +19,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
     let onSelect: (TranscriptSegment) -> Void
     let onToggleBookmark: ((TranscriptSegment) -> Void)?
     var fontSize: CGFloat = 16
+    var activeIDs: Set<UUID> = []
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -89,7 +90,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
         }
         // Content and playback can change in the same SwiftUI transaction.
         // Never let a row insertion swallow an active-caption refresh.
-        if contentChanged || fontChanged || previous.activeID != activeID || previous.highlightedIDs != highlightedIDs
+        if contentChanged || fontChanged || previous.activeID != activeID || previous.activeIDs != activeIDs || previous.highlightedIDs != highlightedIDs
             || previous.bookmarkedIDs != bookmarkedIDs
         {
             for item in collection.visibleItems() {
@@ -137,7 +138,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
 
         fileprivate func configure(_ item: PassageItem, at index: Int) {
             let segment = parent.segments[index]
-            item.configure(segment: segment, active: segment.id == parent.activeID,
+            item.configure(segment: segment, active: segment.id == parent.activeID || parent.activeIDs.contains(segment.id),
                            matched: parent.highlightedIDs.contains(segment.id),
                            bookmarked: parent.bookmarkedIDs.contains(segment.id),
                            fontSize: parent.fontSize,
@@ -233,7 +234,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
     }
 
     func configure(segment: TranscriptSegment, active: Bool, matched: Bool, bookmarked: Bool, fontSize: CGFloat, onPin: (() -> Void)?) {
-        timestamp.stringValue = playbackTime(segment.start)
+        timestamp.stringValue = playbackTime(segment.start) + (segment.timingUncertain == true ? " · Approximate timing" : "")
         passage.font = .systemFont(ofSize: fontSize)
         passage.stringValue = segment.text
         self.onPin = onPin

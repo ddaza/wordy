@@ -18,6 +18,6 @@
   ],
   "expected": [
     { "start": 50, "end": 62, "text": "We define the limit as h goes to zero" },
-    { "start": 62, "end": 66, "text": "zero of the difference quotient." }
+    { "start": 62, "end": 66, "text": "of the difference quotient." }
   ]
 }

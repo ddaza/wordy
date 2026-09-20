@@ -164,6 +164,8 @@ Use the player's media time as the source of truth. Do not advance a separate wa
 
 Define captions as half-open intervals so adjacent cues do not compete at boundaries. Clear captions in gaps. Validate pause/resume, repeated seeks, variable playback speed, and end-of-file behavior. Remove player observers when their owner is released.
 
+Caption repair decision (2026-09-19): coarse engine intervals can overlap while containing distinct speech. Preserve those phrases separately at their source times and mark the overlap uncertain; playback displays all active phrases and labels approximate timing. A time-only discard and unconditional start clamp caused phrase loss and shifts of up to 20 seconds in recorded output. Only text-confirmed duplicate prefixes may advance a remaining caption's start. Keep a bounded provisional boundary in the checkpoint until the next section arrives, then finalize it atomically; flush at EOF. See `docs/caption-pipeline.md` for the conservative matching rules and remaining ASR ambiguity.
+
 Store transcript passages as stable records. Render visible passages and a small surrounding window, preserve scroll position when new results arrive, and avoid emitting a full transcript string on every player tick.
 
 FTS5 supplies indexed keyword, phrase, and prefix search. Treat user input as text unless an explicit advanced-search mode is introduced; use bound queries and safe FTS expression construction. Support case/diacritic handling appropriate to target languages.
@@ -352,6 +354,8 @@ UX and usage follow-up (2026-09-18): Advanced Mode is prominent near the top of 
 
 Chunking isolation (2026-09-19): Each checkpoint stores the engine `raw` lists. Chunks no longer drop phrases by owned time; `CaptionPipeline` feeds raw to the stitch in order. Functional tests fold `Tests/Fixtures/*.json`. The development clip (`Tests/Fixtures/clip-14-20/`) records gold vs cloud 60 s+10 s gaps. See `docs/caption-pipeline.md`.
 
+Boundary repair (2026-09-19): caption revision 2 persists the provisional tail, preserves distinct contained phrases, and matches ordered text across overlapping captions with one-to-one consumption of repeated words. Exact phrase/time fixtures replace word bags as the hard stitch gate. Loading an older checkpoint with complete valid raw history repairs captions locally after backing up the original bytes; inference progress and cloud usage are preserved. Missing or ambiguous legacy raw is left untouched. Partial cloud restoration still requires new consent before upload.
+
 Remaining validation: deliberate live API/Keychain GUI walkthrough, consented long cloud recording, and physical Intel/M1 responsiveness. The automated suite uses synthetic audio and intercepted HTTP; implementation does not imply that these live/hardware acceptance criteria have passed. Deepgram remains excluded. Pricing is not hard-coded; consent links to the selected model's current pricing.
 
 Exit: a user on an older Mac can enable Advanced Mode, paste their own key, and obtain a caption-compatible transcript for a long lecture without Wordy operating a backend; default users never upload audio.
@@ -403,7 +407,7 @@ This is a proposed layout, not a claim that these files or targets already exist
 - Priority languages and representative recordings.
 - File selection versus automatic watched-folder discovery for the first release.
 - Default model/quantization and transcription-speed gates for each hardware tier (M4 Max evidence recorded; M1 outstanding; Intel field RTF ~2.9× on `base` recorded informally — capture a full `docs/benchmarks/` matrix).
-- Chunk boundary reconciliation: every well-formed raw interval is offered to a suffix/prefix stitch capped by overlap seconds; see `docs/caption-pipeline.md`. Owned-end start filters and time-proportional deletion were removed after they dropped distinct phrases.
+- Chunk boundary reconciliation: revision 2 uses a persisted provisional tail and ordered, time-local text matches; distinct overlapping phrases remain explicitly uncertain. Validate ambiguous ASR alternatives against reviewed audio before adopting more aggressive alignment. See `docs/caption-pipeline.md`.
 - Word highlighting quality threshold and whether alignment work is worthwhile.
 - Whether Advanced Mode ships before Google Drive for the first public build aimed at older Macs.
 - Which OpenRouter STT models appear in the Advanced Mode picker beyond the provisional `openai/whisper-large-v3` default.

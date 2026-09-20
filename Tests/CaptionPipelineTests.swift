@@ -48,6 +48,10 @@ struct CaptionPipelineTests {
 
             let committed = fixture.reconcile()
             _ = try TranscriptTimeline(segments: committed)
+            // This is the hard gate: phrase order, repetitions, and exact source
+            // intervals, not just a bag of words occurring somewhere in a job.
+            #expect(committed.map { CaptionJobFixture.TimedText(start: $0.start, end: $0.end, text: $0.text) }
+                == fixture.expected, Comment(rawValue: fixture.name))
             let (heardDropped, expectedMissing, unexpected) = fixture.isolation()
             #expect(
                 heardDropped.isEmpty,

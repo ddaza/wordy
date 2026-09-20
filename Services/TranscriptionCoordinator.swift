@@ -347,13 +347,10 @@ final class TranscriptionCoordinator {
                 }).value == sourceVersion else { throw OpenRouterError.sourceChanged }
                 // Save an already completed response even if pause arrived just
                 // after it, so resuming does not bill that section a second time.
-                let committed = ChunkReconciler.commit(raw: result.segments, for: chunk,
-                                                       after: checkpoint.segments)
-                checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed,
-                                                       detectedLanguage: result.language, cloudUsage: result.usage,
-                                                       raw: result.segments)
-                do { try await store.save(checkpoint) }
-                catch { throw OpenRouterError.storage }
+                do {
+                    checkpoint = try await store.commit(raw: result.segments, chunkIndex: index, to: checkpoint,
+                                                        language: result.language, usage: result.usage)
+                } catch { throw OpenRouterError.storage }
                 jobs[lectureID]?.cloudRestartPending = false
                 jobs[lectureID]?.restoredFromCheckpoint = false
                 jobs[lectureID]?.lastRealTimeFactor = (ContinuousClock.now - started).milliseconds / 1000 / chunk.audioDuration
@@ -383,7 +380,13 @@ final class TranscriptionCoordinator {
             return
         }
         jobs[lectureID]?.sha256 = digest
-        if let checkpoint = try? await store.load(sha256: digest) {
+        let restored: TranscriptCheckpoint?
+        do { restored = try await store.load(sha256: digest) }
+        catch {
+            jobs[lectureID]?.status = .failed("The saved transcript could not be restored. Check available disk space and reopen the recording.")
+            return
+        }
+        if let checkpoint = restored {
             let plan = ChunkPlanner.plan(duration: job.duration, policy: checkpoint.configuration.policy)
             jobs[lectureID]?.cloudUsage = checkpoint.cloudUsage ?? (checkpoint.configuration.engineName == "OpenRouter"
                 ? CloudUsageTotals(unreportedSections: checkpoint.committedChunkCount) : nil)
@@ -506,25 +509,23 @@ final class TranscriptionCoordinator {
                     language: language,
                 )
                 let result = try await transcribeWithRetry(request)
-                let committed = ChunkReconciler.commit(raw: result.segments, for: chunk,
-                                                       after: checkpoint.segments)
-                checkpoint = try checkpoint.committing(chunkIndex: index, segments: committed,
-                                                       detectedLanguage: result.detectedLanguage,
-                                                       raw: result.segments)
-                try await store.save(checkpoint)
+                let previousCount = checkpoint.segments.count
+                checkpoint = try await store.commit(raw: result.segments, chunkIndex: index, to: checkpoint,
+                                                    language: result.detectedLanguage)
+                let committedCount = max(0, checkpoint.segments.count - previousCount)
                 publish(lectureID, checkpoint: checkpoint, plan: plan)
 
                 jobs[lectureID]?.lastRealTimeFactor = result.metrics.realTimeFactor
                 modelLoad += result.metrics.modelLoadMilliseconds
                 peakFootprint = max(peakFootprint, result.metrics.workerFootprintBytes)
-                if firstResult == nil, !committed.isEmpty {
+                if firstResult == nil, committedCount > 0 {
                     firstResult = (ContinuousClock.now - started).milliseconds
                 }
                 chunkRecords.append(.init(
                     index: index, audioSeconds: result.metrics.audioSeconds,
                     decodeMilliseconds: result.metrics.decodeMilliseconds,
                     inferenceMilliseconds: result.metrics.inferenceMilliseconds,
-                    committedSegments: committed.count, footprintBytes: result.metrics.workerFootprintBytes,
+                    committedSegments: committedCount, footprintBytes: result.metrics.workerFootprintBytes,
                 ))
             }
             jobs[lectureID]?.status = .complete

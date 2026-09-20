@@ -5,12 +5,21 @@ public struct TranscriptSegment: Identifiable, Equatable, Sendable, Codable {
     public let start: TimeInterval
     public let end: TimeInterval
     public let text: String
+    /// Source phrase timing is ambiguous after overlap reconciliation.
+    public let timingUncertain: Bool?
 
-    public init(id: UUID = UUID(), start: TimeInterval, end: TimeInterval, text: String) {
+    public init(id: UUID = UUID(), start: TimeInterval, end: TimeInterval, text: String,
+                timingUncertain: Bool = false)
+    {
         self.id = id
         self.start = start
         self.end = end
         self.text = text
+        self.timingUncertain = timingUncertain ? true : nil
+    }
+
+    func markingUncertain() -> Self {
+        .init(id: id, start: start, end: end, text: text, timingUncertain: true)
     }
 }
 
@@ -18,9 +27,12 @@ public struct TranscriptSegment: Identifiable, Equatable, Sendable, Codable {
 public struct TranscriptTimeline: Sendable {
     public enum ValidationError: Error { case invalidInterval, overlappingSegments, duplicateID }
     public let segments: [TranscriptSegment]
+    private let maximumEnds: [TimeInterval]
 
     public init(segments: [TranscriptSegment]) throws {
         var previousEnd: TimeInterval = 0
+        var previousStart: TimeInterval = 0
+        var maximumEnds: [TimeInterval] = []
         var ids = Set<UUID>()
         for segment in segments {
             guard segment.start.isFinite, segment.end.isFinite,
@@ -28,15 +40,26 @@ public struct TranscriptTimeline: Sendable {
             else {
                 throw ValidationError.invalidInterval
             }
-            guard segment.start >= previousEnd else { throw ValidationError.overlappingSegments }
+            guard segment.start >= previousStart,
+                  segment.start >= previousEnd || segment.timingUncertain == true
+            else { throw ValidationError.overlappingSegments }
             guard ids.insert(segment.id).inserted else { throw ValidationError.duplicateID }
-            previousEnd = segment.end
+            previousStart = segment.start
+            previousEnd = max(previousEnd, segment.end)
+            maximumEnds.append(previousEnd)
         }
         self.segments = segments
+        self.maximumEnds = maximumEnds
     }
 
     public func activeSegment(at time: TimeInterval) -> TranscriptSegment? {
-        guard time.isFinite, time >= 0 else { return nil }
+        activeSegments(at: time).last
+    }
+
+    /// Source intervals active now, including explicitly uncertain overlaps.
+    /// Ending a contained phrase must not hide a longer surrounding interval.
+    public func activeSegments(at time: TimeInterval) -> [TranscriptSegment] {
+        guard time.isFinite, time >= 0 else { return [] }
         var low = 0
         var high = segments.count
         while low < high {
@@ -47,7 +70,13 @@ public struct TranscriptTimeline: Sendable {
                 high = middle
             }
         }
-        guard low > 0, time < segments[low - 1].end else { return nil }
-        return segments[low - 1]
+        var active: [TranscriptSegment] = []
+        while low > 0, maximumEnds[low - 1] > time {
+            low -= 1
+            if segments[low].end > time {
+                active.append(segments[low])
+            }
+        }
+        return active.reversed()
     }
 }

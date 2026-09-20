@@ -38,18 +38,6 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
     public var maximumAudioSeconds: TimeInterval {
         chunkSeconds + 2 * overlapSeconds
     }
-
-    /// How many leading words the reconciler may drop when a chunk re-hears
-    /// the previous caption. About 3–4 words for a 3 s local overlap; longer
-    /// overlap may drop more. Spoken English is treated as roughly 1.25 words/s.
-    public var boundaryWordBudget: Int {
-        Self.boundaryWordBudget(overlapSeconds: overlapSeconds)
-    }
-
-    public static func boundaryWordBudget(overlapSeconds: TimeInterval) -> Int {
-        guard overlapSeconds.isFinite, overlapSeconds > 0 else { return 1 }
-        return max(1, Int((overlapSeconds * 1.25).rounded(.toNearestOrAwayFromZero)))
-    }
 }
 
 public struct AudioChunk: Codable, Hashable, Sendable, Identifiable {
@@ -81,8 +69,7 @@ public struct AudioChunk: Codable, Hashable, Sendable, Identifiable {
         audioEnd - audioStart
     }
 
-    /// Leading overlap for this section: audio heard before owned time, used
-    /// to size boundary-word matching against the previous section.
+    /// Audio heard before the section's owned time.
     public var leadingOverlapSeconds: TimeInterval {
         max(0, ownedStart - audioStart)
     }

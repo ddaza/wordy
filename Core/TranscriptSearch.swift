@@ -14,12 +14,16 @@ public enum TranscriptSearch {
         guard !query.isEmpty else { return [] }
         var document = ""
         var offsets: [(offset: Int, segment: TranscriptSegment)] = []
+        var previous: TranscriptSegment?
         for segment in segments {
             if !document.isEmpty {
-                document += " "
+                // Conflicting overlapping phrases are separate alternatives,
+                // not evidence of a sentence spanning their arbitrary order.
+                document += previous.map { $0.end > segment.start } == true ? "\u{2029}" : " "
             }
             offsets.append((document.utf16.count, segment))
             document += segment.text
+            previous = segment
         }
         let source = document as NSString
         var remaining = NSRange(location: 0, length: source.length)
