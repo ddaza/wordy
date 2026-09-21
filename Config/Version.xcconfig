@@ -1,5 +1,5 @@
 // Single source for CFBundleShortVersionString and CFBundleVersion.
 // Git tags and disk image names are v$(MARKETING_VERSION). Bump both values
 // together before `make package`.
-MARKETING_VERSION = 0.1.0
-CURRENT_PROJECT_VERSION = 1
+MARKETING_VERSION = 0.2.0
+CURRENT_PROJECT_VERSION = 2
