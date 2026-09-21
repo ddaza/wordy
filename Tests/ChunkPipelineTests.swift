@@ -53,6 +53,20 @@ import Testing
     #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 30, overlapSeconds: -1) }
 }
 
+@Test func `gold windows overlap the previous thirty second bound`() {
+    let plan = ChunkPlanner.plan(duration: 360, policy: .gold)
+    #expect(plan.count == 12)
+    #expect(plan[0].ownedStart == 0 && plan[0].ownedEnd == 30)
+    #expect(plan[0].audioStart == 0 && plan[0].audioEnd == 33)
+    #expect(plan[1].audioStart == 27 && plan[1].audioEnd == 63)
+    #expect(plan[2].audioStart == 57 && plan[2].audioEnd == 93)
+    for (previous, next) in zip(plan, plan.dropFirst()) {
+        #expect(previous.ownedEnd == next.ownedStart)
+        #expect(next.audioStart == next.ownedStart - 3)
+        #expect(next.audioStart < previous.audioEnd)
+    }
+}
+
 @Test func `overlap speech is committed once by the suffix prefix stitch`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
     let plan = ChunkPlanner.plan(duration: 120, policy: policy)

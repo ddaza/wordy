@@ -116,20 +116,6 @@ public enum CaptionJobRecorder {
     }
 }
 
-public struct CaptionGoldTranscript: Codable, Equatable, Sendable {
-    public var duration: TimeInterval
-    public var segments: [CaptionJobFixture.TimedText]
-
-    public init(duration: TimeInterval, segments: [CaptionJobFixture.TimedText]) {
-        self.duration = duration
-        self.segments = segments
-    }
-
-    public var captions: [TranscriptSegment] {
-        segments.map(\.caption)
-    }
-}
-
 public enum CaptionJobFixtureError: Error, Equatable {
     case rawMissing
 }

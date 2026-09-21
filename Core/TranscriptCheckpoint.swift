@@ -180,8 +180,8 @@ public struct TranscriptCheckpoint: Codable, Equatable, Sendable {
     }
 
     /// Playback, transcript, and search. The overlap tail stays provisional in
-    /// the checkpoint and is labeled approximate until the next section arrives.
-    /// Text export should keep using `segments`.
+    /// the checkpoint until the next section arrives. Text export should keep
+    /// using `segments`.
     public var publishedSegments: [TranscriptSegment] {
         segments + (pendingSegments ?? []).map { segment in
             segment.timingUncertain == true ? segment : segment.markingUncertain()

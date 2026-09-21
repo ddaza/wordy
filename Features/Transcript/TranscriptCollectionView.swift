@@ -234,7 +234,7 @@ struct TranscriptCollectionView: NSViewRepresentable {
     }
 
     func configure(segment: TranscriptSegment, active: Bool, matched: Bool, bookmarked: Bool, fontSize: CGFloat, onPin: (() -> Void)?) {
-        timestamp.stringValue = playbackTime(segment.start) + (segment.timingUncertain == true ? " · Approximate timing" : "")
+        timestamp.stringValue = playbackTime(segment.start)
         passage.font = .systemFont(ofSize: fontSize)
         passage.stringValue = segment.text
         self.onPin = onPin

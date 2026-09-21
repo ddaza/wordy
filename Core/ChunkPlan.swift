@@ -30,6 +30,12 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
     /// lists (e.g. herb names around 3:20 on a sample clip).
     public static let cloudDefault = try! ChunkPolicy(chunkSeconds: 60, overlapSeconds: 10)
 
+    /// Whisper's own decoder grid is ~30 s with no overlap. A one-shot gold
+    /// capture therefore abuts at 0, 30, 60 and drops speech between windows.
+    /// Gold uses the same 30 s owned stride with 3 s of context so consecutive
+    /// decoded ranges overlap: [0–33, 27–63, 57–93, …].
+    public static let gold = try! ChunkPolicy(chunkSeconds: 30, overlapSeconds: 3)
+
     public var label: String {
         "\(Int(chunkSeconds))s+\(Int(overlapSeconds))s"
     }

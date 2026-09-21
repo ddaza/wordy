@@ -57,7 +57,7 @@ Non-speech token suppression (`suppress_nst`) and blank suppression are on; know
 
 ## Chunking and reconciliation
 
-`ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s.
+`ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s. Gold capture uses 30 s + 3 s so Whisper's native 30 s grid overlaps instead of abutting.
 
 `CaptionPipeline.State` keeps a bounded provisional overlap tail until the following response arrives. Revision 2 reconciles ordered text across preceding phrases without a word budget, preserves unmatched speech at its source times, and marks ambiguous overlapping intervals explicitly. Only a matching duplicate prefix supplies evidence for advancing a remaining caption's start. Checkpoints store per-section engine `raw`, finalized captions, and the pending tail; the final section flushes the tail. The rules, recovery behavior, and rejected alternatives are in `docs/caption-pipeline.md`.
 
@@ -65,7 +65,7 @@ Word-level timing is not requested yet; captions remain phrase-level. Carrying d
 
 ## Checkpoints and recovery
 
-`TranscriptCheckpoint` (`Core/TranscriptCheckpoint.swift`) records the audio SHA-256, source duration, `TranscriptionConfiguration` (engine, version, model, language, policy), chunk counts, finalized segments, pending segments, caption revision, and optional per-section `raw` with a completeness flag. Chunks save strictly in order; malformed output or an unmarked overlapping timeline throws before persistence. Explicitly uncertain overlapping source intervals are valid and shown together by playback.
+`TranscriptCheckpoint` (`Core/TranscriptCheckpoint.swift`) records the audio SHA-256, source duration, `TranscriptionConfiguration` (engine, version, model, language, policy), chunk counts, finalized segments, pending segments, caption revision, and optional per-section `raw` with a completeness flag. Chunks save strictly in order; malformed output or an unmarked overlapping timeline throws before persistence. Explicitly uncertain overlapping source intervals are valid; the player shows one caption at a time.
 
 `Services/CheckpointStore.swift` atomically writes `<Application Support>/Wordy/Transcripts/<sha256>.json`, so an interrupted write leaves the previous checkpoint intact. It reconciles on the storage actor and persists *before* the coordinator publishes new segments. Loading older captions replays complete valid raw history locally, preserves usage/progress and unchanged IDs, and first retains the original bytes in `<sha256>.before-caption-v2.json`. Missing or ambiguous legacy raw is never treated as silence or used to erase saved captions. Consequences:
 

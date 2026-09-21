@@ -42,7 +42,7 @@ Local jobs use the same coordinator pause entry, plus `worker.cancel(jobID:)` so
 
 Tests: `Tests/CloudCoordinatorTests.swift` (pause on relaunch, disable, revoke, key removal) and `Tests/OpenRouterHTTPTests.swift` (`cancelling an in-flight cloud section stays a pause not a network error`).
 
-Relative times are shifted by the actual decoded source offset. Each saved section stores the provider `raw` segments and a provisional overlap tail. Cloud uses the same revision-2 stitch as local inference (`docs/caption-pipeline.md`): match ordered text across time-local preceding phrases, consuming each matched occurrence at most once. Distinct overlapping phrases retain their source times and appear separately with approximate timing. Only a confirmed duplicate prefix may advance the remaining caption to the matching prior end. Older checkpoints with complete valid raw history are repaired locally on load after a backup, preserving billed usage and progress; partial jobs remain paused. Repair never uploads audio.
+Relative times are shifted by the actual decoded source offset. Each saved section stores the provider `raw` segments and a provisional overlap tail. Cloud uses the same revision-2 stitch as local inference (`docs/caption-pipeline.md`): match ordered text across time-local preceding phrases, consuming each matched occurrence at most once. Distinct overlapping phrases retain their source times. Only a confirmed duplicate prefix may advance the remaining caption to the matching prior end. Older checkpoints with complete valid raw history are repaired locally on load after a backup, preserving billed usage and progress; partial jobs remain paused. Repair never uploads audio.
 
 ## Cloud usage in the transcription status
 

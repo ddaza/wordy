@@ -1,70 +1,208 @@
 {
-  "duration": 360.0,
-  "segments": [
+  "chunks" : [
     {
-      "start": 0.0,
-      "end": 29.98,
-      "text": "Remember? So that's why you know all this and also if you see in the Sui dynasty or Tang dynasty. Yeah. Okay. Actually, what's that? In the Qin dynasty and Han dynasty,"
+      "index" : 0,
+      "raw" : [
+        {
+          "end" : 29.98,
+          "start" : 0,
+          "text" : " Remember? So that's why, you know, all this. And also, if you see in the Sui Dynasty or Tang Dynasty. Yeah. Okay. Actually, what's that? In the Qin Dynasty and Han Dynasty,"
+        },
+        {
+          "end" : 32.98,
+          "start" : 30,
+          "text" : " right so it's about 200"
+        }
+      ]
     },
     {
-      "start": 30.0,
-      "end": 53.32,
-      "text": "right so it's about 200 BC before the Christ and after so 400 something years  yeah so already they talk about well called I think last time we learned this"
+      "index" : 1,
+      "raw" : [
+        {
+          "end" : 53,
+          "start" : 27,
+          "text" : " Qing Dynasty and Heine Dynasty right so it's about 200 BC before the Christ and after so 400 something years yeah so already they talk about well called I think last time did we learn this?"
+        },
+        {
+          "end" : 62.96,
+          "start" : 57,
+          "text" : " - SS syndrome, no, yeah.  So in, they already talk about"
+        }
+      ]
     },
     {
-      "start": 60.0,
-      "end": 89.74,
-      "text": "In the past, they already talked about hu huo. So yeah. And so there's like eye problem and the lesions of the skin and like a genitalia area. Yeah. And in Zhang Zhongjing, you know, right? Also Shang Han Lun and Jing Kui Yao Lue. Yeah. Also talk about, you know, articaria."
+      "index" : 2,
+      "raw" : [
+        {
+          "end" : 89.684,
+          "start" : 59.684,
+          "text" : "In the past, they already talked about hu huo. There's an eye problem and the lesions of the skin and the genitalia. In Zhang Zhong Jing, Shang Han Lun and Jing Kui Yao Lue also talk about"
+        },
+        {
+          "end" : 93,
+          "start" : 89.684,
+          "text" : "Yeah, so that's..."
+        }
+      ]
     },
     {
-      "start": 90.0,
-      "end": 110.0,
-      "text": "So then coming to the Sui and Tang Dynasty, and there's a doctor called Cao Yuanfang, he has the Zhu Bing Yuan Hou Run."
+      "index" : 3,
+      "raw" : [
+        {
+          "end" : 102.139999,
+          "start" : 87,
+          "text" : " about you know, Articaria. So that's, then coming to the Sui and the Tang Dynasty, yeah,"
+        },
+        {
+          "end" : 110.6,
+          "start" : 102.139999,
+          "text" : " and there's a doctor called Cao Yuanfang, yeah, have the Zhu Bing Yuan Hou Run. So"
+        },
+        {
+          "end" : 122.97999999999999,
+          "start" : 110.6,
+          "text" : " So they talk about 100, the cost of the ETR."
+        }
+      ]
     },
     {
-      "start": 120.0,
-      "end": 149.98,
-      "text": "so the etiology of the skin disease yeah so that's okay and even in the Tang dynasty yeah do you remember king of the herbs medicine Sun Simiao right yeah so Sun Simiao also uh uh talk about the"
+      "index" : 4,
+      "raw" : [
+        {
+          "end" : 118.74,
+          "start" : 117,
+          "text" : " you know, the cost."
+        },
+        {
+          "end" : 147.35,
+          "start" : 118.77,
+          "text" : " of the etiology of the skin disease. So that's it. And even in the Tang Dynasty, do you remember the king of the herbs, medicine? Sun Simiao, right? So Sun Simiao also,"
+        },
+        {
+          "end" : 152.97,
+          "start" : 148.77,
+          "text" : " talk about the"
+        }
+      ]
     },
     {
-      "start": 150.0,
-      "end": 179.36,
-      "text": "at that time already considered like the earliest medical expert on the leprosy. Yeah, leprosy. Yeah. Okay. So he has a book, it's called Qian Jin Fang. Yeah. I hope you remember. So."
+      "index" : 5,
+      "raw" : [
+        {
+          "end" : 166.872,
+          "start" : 147.796,
+          "text" : "talk about that time already he's considered like the earliest medical expert on the leprosy."
+        },
+        {
+          "end" : 183,
+          "start" : 167.60399999999998,
+          "text" : "yeah okay so also he has a book is called changing fun yeah I hope you remember so changing fun fun is"
+        }
+      ]
     },
     {
-      "start": 180.0,
-      "end": 180.84,
-      "text": "*laughs*"
+      "index" : 6,
+      "raw" : [
+        {
+          "end" : 181.16,
+          "start" : 177,
+          "text" : " hope you remember so"
+        },
+        {
+          "end" : 199.95,
+          "start" : 180.99,
+          "text" : " Qianjin Fang is the formula, Qianjin is a thousand gold. So they say, you know, this book is, you know, so fantastic, it's worth more than a thousand gold. So if you get it, yeah."
+        },
+        {
+          "end" : 212.99,
+          "start" : 210.99,
+          "text" : " Yeah, such as, uh,"
+        }
+      ]
     },
     {
-      "start": 180.96,
-      "end": 199.92,
-      "text": "Qianjin Fang is the formula, Qianjin is a thousand gold. So they say, you know, this book is, you know, so fantastic, it's worth more than a thousand gold. So if you get it, yeah."
+      "index" : 7,
+      "raw" : [
+        {
+          "end" : 227.46,
+          "start" : 207,
+          "text" : " herbs to treat the skin disorder such as Ren Shen, Dang Gui, Er Jiao, those herbs. And goes to the Ming Dynasty, then there's one person"
+        },
+        {
+          "end" : 242.97,
+          "start" : 227.49,
+          "text" : " It's called Wang Kentang have the Zheng Zhi Run Sheng. How you translate is the precise treatment of the patterns."
+        }
+      ]
     },
     {
-      "start": 210.96,
-      "end": 232.96,
-      "text": "such as Ren Shen, Tang Gui, Er Jiao, those. And goes to the Ming Dynasty, then there's one person is called Wang Ken Tang, have the Zheng Zhi Run Sheng."
+      "index" : 8,
+      "raw" : [
+        {
+          "end" : 259.86,
+          "start" : 237,
+          "text" : " is the precise treatment of the patterns yeah then also in the Ming Dynasty there's another  guys it's called Chen Shigong yeah so have the wiker gentle yeah so kind of very detail you know"
+        },
+        {
+          "end" : 273,
+          "start" : 267,
+          "text" : " the Ying-Qing Dynasty"
+        }
+      ]
     },
     {
-      "start": 240.96,
-      "end": 265.2,
-      "text": "the patterns yeah then also in the Ming Dynasty there's another guy it's called Chen Shigong yeah  so have the Wai Ke Zheng Zhong yeah so kind of very detailed you know talk about all this disease"
+      "index" : 9,
+      "raw" : [
+        {
+          "end" : 296.88,
+          "start" : 267,
+          "text" : " the Ying-Qing dynasty. There's one book edited by Chen Shichen, he's talking about syphilis. Because syphilis didn't show up before that, because when during the Ming Dynasty,"
+        },
+        {
+          "end" : 302.98,
+          "start" : 297,
+          "text" : " That's a lot of foreigners come to China to make"
+        }
+      ]
     },
     {
-      "start": 270.96,
-      "end": 299.96,
-      "text": "There's one book edited by Chen Shichen, he's talking about syphilis. Syphilis didn't show up before that, because during the Ming Dynasty, there's a lot of foreigners come to China."
+      "index" : 10,
+      "raw" : [
+        {
+          "end" : 326.98,
+          "start" : 297,
+          "text" : " you know, that's a lot of foreigners come to, you know, China to make, you know, some trade or something. Yeah. Then that's those guys, the sailors, yeah, bring out this, you know, province. Yeah. So it's called Mei Chuang Mi Lu. So secret record in Bayberry flower source. Yeah. So that's the, yeah. So that's what I'm talking about."
+        },
+        {
+          "end" : 332.96,
+          "start" : 327,
+          "text" : " why in Chinese they call them"
+        }
+      ]
     },
     {
-      "start": 300.96,
-      "end": 322.2,
-      "text": "China to make some trade or something. Then those guys, the sailors bring out this problem. So it's called Mei Chuang Mi Lu, so secret record in bayberry flower source."
-    },
-    {
-      "start": 330.96,
-      "end": 360.0,
-      "text": "they call that like a like STD them they call it a while you'll be yeah so flower  and the willow paper really okay then they are also in the Qing Dynasty does not"
+      "index" : 11,
+      "raw" : [
+        {
+          "end" : 356,
+          "start" : 327,
+          "text" : " why in Chinese they call that like STD then they call it hualioping so flower and the willow, bayberry. Okay then there are also"
+        },
+        {
+          "end" : 359.96,
+          "start" : 357,
+          "text" : " in the Qing Dynasty that's"
+        }
+      ]
     }
-  ]
+  ],
+  "duration" : 360,
+  "expected" : [
+
+  ],
+  "name" : "clip-14-20-gold-30-3",
+  "policy" : {
+    "chunkSeconds" : 30,
+    "overlapSeconds" : 3
+  }
 }

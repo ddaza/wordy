@@ -8,20 +8,9 @@ struct PlayerView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            if !playback.activeSegments.isEmpty {
-                VStack(spacing: 4) {
-                    if playback.activeSegments.contains(where: { $0.timingUncertain == true }) {
-                        Text("Approximate caption timing").font(.caption).foregroundStyle(.secondary)
-                    }
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            ForEach(playback.activeSegments) { segment in
-                                Text(segment.text).font(.callout).multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity).accessibilityLabel("Current caption: \(segment.text)")
-                            }
-                        }
-                    }.frame(maxHeight: 100)
-                }
+            if let segment = playback.activeSegments.last {
+                Text(segment.text).font(.callout).multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity).accessibilityLabel("Current caption: \(segment.text)")
             }
             HStack(spacing: 12) {
                 Text(playbackTime(isScrubbing ? scrubTime : playback.time)).monospacedDigit()
