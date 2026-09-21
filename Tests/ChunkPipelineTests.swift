@@ -4,7 +4,7 @@ import Testing
     import WordyCore
 #endif
 
-@Test func `chunk plan covers the recording exactly once with bounded context`() throws {
+@Test func `chunk plan covers the recording exactly once with policy overlap`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
     let duration = 5986.064
     let plan = ChunkPlanner.plan(duration: duration, policy: policy)
@@ -12,24 +12,26 @@ import Testing
     #expect(plan.first?.audioStart == 0)
     #expect(plan.last?.ownedEnd == duration)
     #expect(plan.last?.audioEnd == duration)
+    for chunk in plan.dropLast() {
+        #expect(chunk.audioDuration == policy.chunkSeconds)
+    }
     for (previous, next) in zip(plan, plan.dropFirst()) {
         #expect(previous.ownedEnd == next.ownedStart)
-        #expect(next.audioStart == next.ownedStart - 3)
-        #expect(previous.audioEnd == previous.ownedEnd + 3)
-        #expect(previous.audioDuration <= 66)
+        #expect(next.audioStart == previous.audioStart + policy.strideSeconds)
+        #expect(next.audioStart == previous.audioEnd - policy.overlapSeconds)
+        #expect(previous.audioDuration <= policy.chunkSeconds)
     }
-    // 5986 / 60 = 99.77 → 99 full chunks plus a 46 s tail kept as its own chunk.
-    #expect(plan.count == 100)
     #expect(ChunkPlanner.plan(duration: 0, policy: policy).isEmpty)
     #expect(ChunkPlanner.plan(duration: .nan, policy: policy).isEmpty)
 }
 
-@Test func `short tails merge into the previous chunk`() throws {
+@Test func `a short final window stays inside the policy length`() throws {
     let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 2)
     let plan = ChunkPlanner.plan(duration: 125, policy: policy)
-    #expect(plan.count == 2)
     #expect(plan.last?.ownedEnd == 125)
-    #expect(plan.last?.ownedDuration == 65)
+    #expect(plan.last?.audioEnd == 125)
+    #expect(plan.allSatisfy { $0.audioDuration <= policy.chunkSeconds })
+    #expect(plan.last?.audioDuration == 125 - (plan.last?.audioStart ?? 0))
 }
 
 @Test func `the complete matching phrase is removed independent of overlap budget`() throws {
@@ -49,21 +51,25 @@ import Testing
 
 @Test func `chunk policy rejects unusable values`() {
     #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 1, overlapSeconds: 0) }
-    #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 30, overlapSeconds: 15) }
+    #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 30, overlapSeconds: 30) }
     #expect(throws: ChunkPolicy.PolicyError.self) { try ChunkPolicy(chunkSeconds: 30, overlapSeconds: -1) }
 }
 
-@Test func `gold windows overlap the previous thirty second bound`() {
-    let plan = ChunkPlanner.plan(duration: 360, policy: .gold)
-    #expect(plan.count == 12)
-    #expect(plan[0].ownedStart == 0 && plan[0].ownedEnd == 30)
-    #expect(plan[0].audioStart == 0 && plan[0].audioEnd == 33)
-    #expect(plan[1].audioStart == 27 && plan[1].audioEnd == 63)
-    #expect(plan[2].audioStart == 57 && plan[2].audioEnd == 93)
-    for (previous, next) in zip(plan, plan.dropFirst()) {
-        #expect(previous.ownedEnd == next.ownedStart)
-        #expect(next.audioStart == next.ownedStart - 3)
-        #expect(next.audioStart < previous.audioEnd)
+@Test func `planned windows overlap by the policy amount`() {
+    let duration: TimeInterval = 360
+    for policy in [ChunkPolicy.gold, .default, .cloudDefault] {
+        let plan = ChunkPlanner.plan(duration: duration, policy: policy)
+        #expect(plan.first?.audioStart == 0)
+        #expect(plan.last?.ownedEnd == duration)
+        #expect(plan.last?.audioEnd == duration)
+        for chunk in plan.dropLast() {
+            #expect(chunk.audioDuration == policy.chunkSeconds)
+        }
+        for (previous, next) in zip(plan, plan.dropFirst()) {
+            #expect(previous.ownedEnd == next.ownedStart)
+            #expect(next.audioStart == previous.audioStart + policy.strideSeconds)
+            #expect(next.audioStart == previous.audioEnd - policy.overlapSeconds)
+        }
     }
 }
 
@@ -191,7 +197,7 @@ import Testing
                                            detectedLanguage: "en", raw: [.init(start: 0.5, end: 5, text: "heard a")])
     #expect(checkpoint.raw?.count == 1)
     #expect(checkpoint.raw?.first?.first?.text == "heard a")
-    #expect(checkpoint.completedThrough(plan: plan) == 60)
+    #expect(checkpoint.completedThrough(plan: plan) == plan[0].ownedEnd)
     #expect(throws: TranscriptCheckpoint.CheckpointError.self) {
         try checkpoint.committing(chunkIndex: 2, segments: [], detectedLanguage: nil)
     }
@@ -204,16 +210,19 @@ import Testing
     }
     checkpoint = try checkpoint.committing(chunkIndex: 1, segments: [], detectedLanguage: nil)
     checkpoint = try checkpoint.committing(chunkIndex: 2, segments: [.init(start: 170, end: 175, text: "c")], detectedLanguage: nil)
+    while !checkpoint.isComplete {
+        checkpoint = try checkpoint.committing(chunkIndex: checkpoint.committedChunkCount, segments: [], detectedLanguage: nil)
+    }
     #expect(checkpoint.isComplete)
     #expect(checkpoint.nextChunkIndex == nil)
     #expect(checkpoint.detectedLanguage == "en")
 
-    #expect(checkpoint.matches(audioSHA256: "abc", sourceDuration: 180, configuration: configuration, chunkCount: 3))
-    #expect(!checkpoint.matches(audioSHA256: "def", sourceDuration: 180, configuration: configuration, chunkCount: 3))
+    #expect(checkpoint.matches(audioSHA256: "abc", sourceDuration: 180, configuration: configuration, chunkCount: plan.count))
+    #expect(!checkpoint.matches(audioSHA256: "def", sourceDuration: 180, configuration: configuration, chunkCount: plan.count))
     let otherModel = TranscriptionConfiguration(engineName: "whisper.cpp", engineVersion: "1.9.4",
                                                 modelID: "whisper-base", language: "auto", policy: policy)
-    #expect(!checkpoint.matches(audioSHA256: "abc", sourceDuration: 180, configuration: otherModel, chunkCount: 3))
-    #expect(!checkpoint.matches(audioSHA256: "abc", sourceDuration: 240, configuration: configuration, chunkCount: 3))
+    #expect(!checkpoint.matches(audioSHA256: "abc", sourceDuration: 180, configuration: otherModel, chunkCount: plan.count))
+    #expect(!checkpoint.matches(audioSHA256: "abc", sourceDuration: 240, configuration: configuration, chunkCount: plan.count))
 
     let encoded = try JSONEncoder().encode(checkpoint)
     let decoded = try JSONDecoder().decode(TranscriptCheckpoint.self, from: encoded)
@@ -245,7 +254,7 @@ import Testing
     let model = URL(fileURLWithPath: "/tmp/model.bin")
     let request = try ChunkTranscriptionRequest(jobID: UUID(), chunk: chunk, audioURL: audio, modelURL: model, modelID: "whisper-small")
     #expect(request.protocolVersion == TranscriptionProtocol.version)
-    #expect(request.audioEnd == 63)
+    #expect(request.audioEnd == policy.chunkSeconds)
     let data = try MessageCoding.encode(request)
     let decoded = try MessageCoding.decode(ChunkTranscriptionRequest.self, from: data)
     #expect(decoded == request)

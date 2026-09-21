@@ -63,14 +63,14 @@ Older documents may have omitted raw data or padded unavailable sections with em
 - Synthetic JSON in `Tests/Fixtures/` specifies exact ordered phrases and start/end times. Tests compare these directly, including repetition counts.
 - `CaptionRecoveryTests` covers contained phrases, multiple-caption anchors, one-to-one duplicate consumption, punctuation, known silence, pending-tail recovery, published provisional tails, per-phrase window sanitization, EOF, migration, billing preservation, and a synthetic two-hour fold.
 - Native app tests cover automatic local repair and backup preservation, paused cloud restoration without uploads, and real AVPlayer seeks through overlapping intervals.
-- `Tests/Fixtures/clip-14-20/` holds the existing recorded raw fixture. Gold is captured with `ChunkPolicy.gold` (30 s owned + 3 s overlap) so consecutive decoded windows are `[0–33, 27–63, 57–93, …]` instead of Whisper's non-overlapping 30 s grid. Cloud remains 60 s+10 s. Tests check phrase-local ordered coverage and ensure unchanged captions are never shifted. The global word-set check is only supplementary.
+- `Tests/Fixtures/clip-14-20/` holds the existing recorded raw fixture. Gold is captured with `ChunkPolicy.gold` (30 s window + 3 s overlap from that policy) so consecutive decoded windows overlap instead of Whisper's non-overlapping 30 s grid. Cloud remains 60 s+10 s. Tests check phrase-local ordered coverage and ensure unchanged captions are never shifted. The global word-set check is only supplementary.
 - Gold minus raw is an ASR/window miss, not a stitch omission. A one-shot ASR transcript is not a human-reviewed timing reference and does not establish accuracy against the audio.
 
 A fixture comes from `CaptionJobFixture(name:checkpoint:)` or synthetic JSON using that schema. Partial fixtures retain the plan and replay only the completed prefix. Do not introduce a separate decoder/planner capture script. The opt-in `WORDY_RECORD_CLIP=1` recorder uses the real `OpenRouterSectionClient` for the cloud 60 s+10 s fixture; `WORDY_RECORD_GOLD=1` recaptures gold with overlapping 30 s+3 s windows. Normal tests never upload.
 
 ## Policies and rejected approaches
 
-Local remains 60 s owned + 3 s context; cloud remains 60 s + 10 s context (80 s maximum middle window). Gold capture uses 30 s + 3 s so Whisper's native 30 s grid overlaps. Short tails still merge. No production model, provider, or audio chunk policy changed for this repair.
+Local remains 60 s + 3 s; cloud remains 60 s + 10 s. Gold capture uses 30 s + 3 s so Whisper's native 30 s grid is not split without overlap. Window length and overlap both come from `ChunkPolicy`; a short final window is kept rather than merged past `chunkSeconds`.
 
 Keep these earlier failures in mind:
 

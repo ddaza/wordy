@@ -14,10 +14,14 @@
       "raw": [
         { "start": 58, "end": 66, "text": "one two three four five six seven eight" }
       ]
+    },
+    {
+      "index": 2,
+      "raw": []
     }
   ],
   "expected": [
-    { "start": 50, "end": 62, "text": "alpha beta gamma delta" },
+    { "start": 50, "end": 60, "text": "alpha beta gamma delta" },
     { "start": 58, "end": 66, "text": "one two three four five six seven eight" }
   ]
 }

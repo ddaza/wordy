@@ -22,21 +22,21 @@ private enum CaptionFixtureStore {
 }
 
 struct CaptionPipelineTests {
-    @Test func `planner tiles duration and adds overlap without shifting owned time`() throws {
+    @Test func `planner windows overlap by the policy without shifting owned time`() throws {
         let policy = try ChunkPolicy(chunkSeconds: 60, overlapSeconds: 10)
-        let plan = ChunkPlanner.plan(duration: 360, policy: policy)
-        #expect(plan.count == 6)
+        let duration: TimeInterval = 360
+        let plan = ChunkPlanner.plan(duration: duration, policy: policy)
         #expect(plan.first?.ownedStart == 0)
-        #expect(plan.last?.ownedEnd == 360)
+        #expect(plan.last?.ownedEnd == duration)
+        #expect(plan.last?.audioEnd == duration)
+        for chunk in plan.dropLast() {
+            #expect(chunk.audioDuration == policy.chunkSeconds)
+        }
         for (previous, next) in zip(plan, plan.dropFirst()) {
             #expect(previous.ownedEnd == next.ownedStart)
-            #expect(next.audioStart == next.ownedStart - 10)
-            #expect(previous.audioEnd == previous.ownedEnd + 10)
+            #expect(next.audioStart == previous.audioStart + policy.strideSeconds)
+            #expect(next.audioStart == previous.audioEnd - policy.overlapSeconds)
         }
-        #expect(plan[3].ownedStart == 180)
-        #expect(plan[3].ownedEnd == 240)
-        #expect(plan[3].audioStart == 170)
-        #expect(plan[3].audioEnd == 250)
     }
 
     @Test func `committed fixtures fold through CaptionPipeline`() throws {
@@ -78,7 +78,7 @@ struct CaptionPipelineTests {
         var checkpoint = TranscriptCheckpoint(
             audioSHA256: "fixture", sourceDuration: 120, configuration: configuration, chunkCount: plan.count,
         )
-        let firstRaw = [RawSegment(start: 50, end: 62, text: "We define the limit as h goes to zero")]
+        let firstRaw = [RawSegment(start: 50, end: 59, text: "We define the limit as h goes to zero")]
         checkpoint = try checkpoint.committing(
             chunkIndex: 0,
             segments: ChunkReconciler.commit(raw: firstRaw, for: plan[0], after: []),

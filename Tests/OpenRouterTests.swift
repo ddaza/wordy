@@ -43,10 +43,10 @@ struct OpenRouterTests {
     @Test func `cloud phrase overlap preserves deliberate repetition`() throws {
         let chunks = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
         let chunk = chunks[1]
-        let first = [TranscriptSegment(start: chunk.ownedStart - 2, end: chunk.ownedStart + 2,
+        let first = [TranscriptSegment(start: chunk.audioStart, end: chunk.audioStart + 4,
                                        text: "Review the important point")]
+        let relativeStart = 1.0
         let audioStart = chunk.audioStart
-        let relativeStart = (chunk.ownedStart - 1) - audioStart
         let result = try OpenRouterTranscript.decode(
             Data("""
             {"text":"important point. Again again","segments":[
@@ -65,8 +65,7 @@ struct OpenRouterTests {
         let policy = ChunkPolicy.cloudDefault
         #expect(policy.maximumAudioSeconds <= 80)
         let plan = ChunkPlanner.plan(duration: 360, policy: policy)
-        #expect(plan.allSatisfy { $0.audioDuration <= 80 })
-        #expect(plan.count == 6) // 60 s owned on a 6-minute clip
+        #expect(plan.allSatisfy { $0.audioDuration <= policy.maximumAudioSeconds })
         #expect(OpenRouterModel.whisperLargeV3.configuration.policy == policy)
     }
 

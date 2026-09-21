@@ -22,12 +22,16 @@
       "raw": [
         { "start": 150, "end": 170, "text": "Closing remarks" }
       ]
+    },
+    {
+      "index": 3,
+      "raw": []
     }
   ],
   "expected": [
     { "start": 30, "end": 50, "text": "Earlier context about the topic" },
-    { "start": 60, "end": 70, "text": "Boundary title phrase one" },
-    { "start": 90, "end": 120, "text": "Next section continues" },
-    { "start": 150, "end": 170, "text": "Closing remarks" }
+    { "start": 60, "end": 90, "text": "Boundary title phrase one" },
+    { "start": 90, "end": 110, "text": "Next section continues" },
+    { "start": 150, "end": 160, "text": "Closing remarks" }
   ]
 }

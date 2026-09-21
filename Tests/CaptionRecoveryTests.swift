@@ -6,9 +6,25 @@ import Testing
 
 struct CaptionRecoveryTests {
     private let configuration = OpenRouterModel.whisperLargeV3.configuration
+    private var sourceDuration: TimeInterval {
+        120
+    }
+
+    private var plan: [AudioChunk] {
+        ChunkPlanner.plan(duration: sourceDuration, policy: configuration.policy)
+    }
 
     private func checkpoint() -> TranscriptCheckpoint {
-        .init(audioSHA256: "synthetic", sourceDuration: 120, configuration: configuration, chunkCount: 2)
+        .init(audioSHA256: "synthetic", sourceDuration: sourceDuration, configuration: configuration,
+              chunkCount: plan.count)
+    }
+
+    private func completing(_ checkpoint: TranscriptCheckpoint) throws -> TranscriptCheckpoint {
+        var next = checkpoint
+        while !next.isComplete {
+            next = try next.committing(chunkIndex: next.committedChunkCount, raw: [], detectedLanguage: nil)
+        }
+        return next
     }
 
     @Test(arguments: ["whisper.cpp", "OpenRouter"])
@@ -17,16 +33,18 @@ struct CaptionRecoveryTests {
                                                        modelID: "fixture", language: "en",
                                                        policy: engine == "OpenRouter" ? .cloudDefault : .default)
         var checkpoint = TranscriptCheckpoint(audioSHA256: "synthetic", sourceDuration: 120,
-                                              configuration: configuration, chunkCount: 2)
+                                              configuration: configuration,
+                                              chunkCount: ChunkPlanner.plan(duration: 120, policy: configuration.policy).count)
         checkpoint = try checkpoint.committing(chunkIndex: 0,
-                                               raw: [.init(start: 40, end: 63, text: "First source phrase.")],
+                                               raw: [.init(start: 40, end: 58, text: "First source phrase.")],
                                                detectedLanguage: "en")
         checkpoint = try checkpoint.committing(chunkIndex: 1,
                                                raw: [.init(start: 58, end: 62, text: "Distinct contained phrase.")],
                                                detectedLanguage: "en")
+        checkpoint = try completing(checkpoint)
         #expect(checkpoint.segments.map(\.text) == ["First source phrase.", "Distinct contained phrase."])
         #expect(checkpoint.segments.map(\.start) == [40, 58])
-        #expect(checkpoint.segments.map(\.end) == [63, 62])
+        #expect(checkpoint.segments.map(\.end) == [58, 62])
         #expect(checkpoint.isComplete && checkpoint.hasReplayableRaw)
         #expect((checkpoint.cloudUsage != nil) == (engine == "OpenRouter"))
     }
@@ -35,68 +53,75 @@ struct CaptionRecoveryTests {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
         let first = RawSegment(start: 40, end: 70, text: "Review the first example.")
         let second = RawSegment(start: 52, end: 62, text: "Now consider the second example.")
-        let captions = CaptionPipeline.reconcile(plan: plan, rawByChunk: [[first], [second]])
+        let captions = CaptionPipeline.reconcile(plan: plan, rawByChunk: [[first], [second]] + Array(repeating: [], count: max(0, plan.count - 2)))
         #expect(captions.map(\.text) == [first.text, second.text])
         #expect(captions.map(\.start) == [40, 52])
-        #expect(captions.map(\.end) == [70, 62])
+        #expect(captions.map(\.end) == [60, 62])
         #expect(captions[1].timingUncertain == true)
         let timeline = try TranscriptTimeline(segments: captions)
         #expect(timeline.activeSegments(at: 55).map(\.text) == [first.text, second.text])
-        #expect(timeline.activeSegment(at: 62)?.text == first.text)
+        #expect(timeline.activeSegment(at: 51)?.text == first.text)
         #expect(timeline.activeSegments(at: 70).isEmpty)
         #expect(TranscriptSearch.hits(in: captions, query: "second example").first?.time == 52)
         #expect(TranscriptSearch.hits(in: captions, query: "example. Now").isEmpty)
     }
 
+    private func fold(_ raw: [[RawSegment]], plan: [AudioChunk]) -> [TranscriptSegment] {
+        CaptionPipeline.reconcile(
+            plan: plan,
+            rawByChunk: raw + Array(repeating: [], count: max(0, plan.count - raw.count)),
+        )
+    }
+
     @Test func `matching context spans several prior phrases but is consumed only once`() {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
-        let captions = CaptionPipeline.reconcile(plan: plan, rawByChunk: [
+        let captions = fold([
             [.init(start: 50, end: 58, text: "We measure the rate"),
              .init(start: 58, end: 68, text: "of change over time.")],
             [.init(start: 52, end: 70, text: "the rate of change over time. First application."),
              .init(start: 72, end: 75, text: "of change over time.")],
-        ])
+        ], plan: plan)
         #expect(captions.map(\.text) == ["We measure the rate", "of change over time.",
                                          "First application.", "of change over time."])
-        #expect(captions.map(\.start) == [50, 58, 68, 72])
+        #expect(captions.map(\.start) == [50, 58, 60, 72])
     }
 
     @Test func `one previous occurrence cannot erase two intentional repetitions`() {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
-        let captions = CaptionPipeline.reconcile(plan: plan, rawByChunk: [
+        let captions = fold([
             [.init(start: 50, end: 70, text: "Please repeat this sentence.")],
             [.init(start: 52, end: 60, text: "Please repeat this sentence."),
              .init(start: 62, end: 68, text: "Please repeat this sentence.")],
-        ])
+        ], plan: plan)
         #expect(captions.map(\.text) == ["Please repeat this sentence.", "Please repeat this sentence."])
         #expect(captions.map(\.start) == [50, 62])
     }
 
     @Test func `a matching prefix uses its own phrase end rather than an unrelated overlap end`() {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
-        let captions = CaptionPipeline.reconcile(plan: plan, rawByChunk: [
+        let captions = fold([
             [.init(start: 50, end: 70, text: "An unrelated long phrase."),
              .init(start: 55, end: 63, text: "boundary anchor here")],
             [.init(start: 58, end: 68, text: "boundary anchor here distinct ending")],
-        ])
+        ], plan: plan)
         #expect(captions.map(\.text) == ["An unrelated long phrase.", "boundary anchor here", "distinct ending"])
-        #expect(captions.last?.start == 63 && captions.last?.end == 68)
+        #expect(captions.last?.start == 60 && captions.last?.end == 68)
     }
 
     @Test func `punctuation and parenthesized speech do not delete spoken words`() {
         let plan = ChunkPlanner.plan(duration: 120, policy: .cloudDefault)
-        let captions = CaptionPipeline.reconcile(plan: plan, rawByChunk: [
+        let captions = fold([
             [.init(start: 50, end: 65, text: "alpha beta gamma")],
             [.init(start: 58, end: 70, text: "alpha — beta gamma distinct ending"),
              .init(start: 75, end: 80, text: "(This is spoken lecture content.)"),
              .init(start: 81, end: 83, text: "[BLANK_AUDIO]")],
-        ])
+        ], plan: plan)
         #expect(captions.map(\.text) == ["alpha beta gamma", "distinct ending", "(This is spoken lecture content.)"])
-        #expect(captions.map(\.start) == [50, 65, 75])
+        #expect(captions.map(\.start) == [50, 60, 75])
     }
 
     @Test func `provisional boundary survives save and resume and EOF flushes it`() throws {
-        let raw = [RawSegment(start: 40, end: 70, text: "First example.")]
+        let raw = [RawSegment(start: 40, end: 58, text: "First example.")]
         let first = try checkpoint().committing(chunkIndex: 0, raw: raw, detectedLanguage: "en")
         #expect(first.segments.isEmpty)
         #expect(first.pendingSegments?.map(\.text) == ["First example."])
@@ -107,26 +132,28 @@ struct CaptionRecoveryTests {
         #expect(first.completedThrough(plan: ChunkPlanner.plan(duration: 120, policy: .cloudDefault)) == 40)
         let restored = try JSONDecoder().decode(TranscriptCheckpoint.self, from: JSONEncoder().encode(first))
         let second = try restored.committing(chunkIndex: 1,
-                                             raw: [.init(start: 55, end: 65, text: "Distinct explanation.")],
+                                             raw: [.init(start: 58, end: 65, text: "Distinct explanation.")],
                                              detectedLanguage: nil)
-        #expect(second.isComplete && second.pendingSegments?.isEmpty == true)
-        #expect(second.segments.map(\.text) == ["First example.", "Distinct explanation."])
-        #expect(second.segments.first?.id == first.pendingSegments?.first?.id)
-        #expect(second.raw?.count == 2 && second.hasReplayableRaw)
-        #expect(second.cloudUsage?.sections == 2)
-        try second.validate()
+        let done = try completing(second)
+        #expect(done.isComplete && done.pendingSegments?.isEmpty == true)
+        #expect(done.segments.map(\.text) == ["First example.", "Distinct explanation."])
+        #expect(done.segments.first?.id == first.pendingSegments?.first?.id)
+        #expect(done.raw?.count == plan.count && done.hasReplayableRaw)
+        #expect(done.cloudUsage?.sections == plan.count)
+        try done.validate()
     }
 
     @Test func `repair restores lost phrases once without changing identity progress or billing`() throws {
-        let first = TranscriptSegment(start: 40, end: 70, text: "First example.")
+        let first = TranscriptSegment(start: 40, end: 58, text: "First example.")
         var legacy = try checkpoint().committing(chunkIndex: 0, segments: [first], detectedLanguage: "en",
-                                                 raw: [.init(start: 40, end: 70, text: first.text)])
+                                                 raw: [.init(start: 40, end: 58, text: first.text)])
         legacy = try legacy.committing(chunkIndex: 1, segments: [], detectedLanguage: nil,
-                                       raw: [.init(start: 55, end: 65, text: "Distinct explanation.")])
+                                       raw: [.init(start: 58, end: 65, text: "Distinct explanation.")])
+        legacy = try legacy.committing(chunkIndex: 2, segments: [], detectedLanguage: nil, raw: [])
         let repaired = try legacy.repairingCaptions()
         #expect(repaired.segments.map(\.text) == [first.text, "Distinct explanation."])
         #expect(repaired.segments.first?.id == first.id)
-        #expect(repaired.segments.last?.start == 55)
+        #expect(repaired.segments.last?.start == 58)
         #expect(repaired.audioSHA256 == legacy.audioSHA256 && repaired.configuration == legacy.configuration)
         #expect(repaired.committedChunkCount == legacy.committedChunkCount && repaired.isComplete)
         #expect(repaired.updatedAt == legacy.updatedAt && repaired.cloudUsage == legacy.cloudUsage)
@@ -171,7 +198,7 @@ struct CaptionRecoveryTests {
 
     @Test func `known silence is replayable but malformed raw cannot replace saved work`() throws {
         var silence = try checkpoint().committing(chunkIndex: 0, raw: [], detectedLanguage: nil)
-        silence = try silence.committing(chunkIndex: 1, raw: [], detectedLanguage: nil)
+        silence = try completing(silence)
         #expect(silence.hasReplayableRaw && silence.isComplete && silence.segments.isEmpty)
         var document = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(silence)) as? [String: Any])
         document.removeValue(forKey: "captionRevision")
@@ -202,11 +229,11 @@ struct CaptionRecoveryTests {
             chunkIndex: 0, segments: [.init(start: 10, end: 20, text: "Kept phrase.")], detectedLanguage: nil,
             raw: [
                 .init(start: 10, end: 20, text: "Kept phrase."),
-                .init(start: 40, end: 70.2, text: "Slightly rounded ending."),
+                .init(start: 40, end: 60.2, text: "Slightly rounded ending."),
             ],
         )
         let repairedSlight = try clampable.repairingCaptions()
         #expect(repairedSlight.captionRevision == ChunkReconciler.revision)
-        #expect(repairedSlight.publishedSegments.contains { $0.text == "Slightly rounded ending." && $0.end == 70 })
+        #expect(repairedSlight.publishedSegments.contains { $0.text == "Slightly rounded ending." && $0.end == 60 })
     }
 }

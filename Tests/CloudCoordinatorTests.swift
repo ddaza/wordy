@@ -120,13 +120,17 @@
     struct CloudCoordinatorTests {
         @Test func `restoring a completed cloud transcript repairs locally and backs up original bytes`() async throws {
             let f = try CloudFixture(); defer { f.cleanup() }
-            let first = TranscriptSegment(start: 40, end: 70, text: "First example.")
+            let chunks = CloudFixture.cloudChunks(duration: 120)
+            let first = TranscriptSegment(start: 40, end: 58, text: "First example.")
             var legacy = TranscriptCheckpoint(audioSHA256: f.digest, sourceDuration: 120,
-                                              configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: 2)
+                                              configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: chunks)
             legacy = try legacy.committing(chunkIndex: 0, segments: [first], detectedLanguage: "en",
-                                           raw: [.init(start: 40, end: 70, text: first.text)])
+                                           raw: [.init(start: 40, end: 58, text: first.text)])
             legacy = try legacy.committing(chunkIndex: 1, segments: [], detectedLanguage: nil,
-                                           raw: [.init(start: 55, end: 65, text: "Distinct explanation.")])
+                                           raw: [.init(start: 58, end: 65, text: "Distinct explanation.")])
+            for index in 2 ..< chunks {
+                legacy = try legacy.committing(chunkIndex: index, segments: [], detectedLanguage: nil, raw: [])
+            }
             try await f.store.save(legacy)
             let directory = f.directory.appendingPathComponent("checkpoints")
             let original = try Data(contentsOf: directory.appendingPathComponent("\(f.digest).json"))
@@ -146,10 +150,11 @@
         @Test func `repairing a partial cloud checkpoint keeps its boundary paused without upload`() async throws {
             let f = try CloudFixture(); defer { f.cleanup() }
             var legacy = TranscriptCheckpoint(audioSHA256: f.digest, sourceDuration: 120,
-                                              configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: 2)
+                                              configuration: OpenRouterModel.whisperLargeV3.configuration,
+                                              chunkCount: CloudFixture.cloudChunks(duration: 120))
             legacy = try legacy.committing(chunkIndex: 0,
-                                           segments: [.init(start: 40, end: 70, text: "Saved boundary.")], detectedLanguage: "en",
-                                           raw: [.init(start: 40, end: 70, text: "Saved boundary.")])
+                                           segments: [.init(start: 40, end: 58, text: "Saved boundary.")], detectedLanguage: "en",
+                                           raw: [.init(start: 40, end: 58, text: "Saved boundary.")])
             try await f.store.save(legacy)
             try await f.register()
             #expect(f.coordinator.jobs[f.id]?.status == .paused)
@@ -164,10 +169,11 @@
         @Test func `a failed checkpoint repair never starts a replacement job`() async throws {
             let f = try CloudFixture(); defer { f.cleanup() }
             var legacy = TranscriptCheckpoint(audioSHA256: f.digest, sourceDuration: 120,
-                                              configuration: OpenRouterModel.whisperLargeV3.configuration, chunkCount: 2)
+                                              configuration: OpenRouterModel.whisperLargeV3.configuration,
+                                              chunkCount: CloudFixture.cloudChunks(duration: 120))
             legacy = try legacy.committing(chunkIndex: 0,
-                                           segments: [.init(start: 40, end: 70, text: "Saved boundary.")], detectedLanguage: nil,
-                                           raw: [.init(start: 40, end: 70, text: "Saved boundary.")])
+                                           segments: [.init(start: 40, end: 58, text: "Saved boundary.")], detectedLanguage: nil,
+                                           raw: [.init(start: 40, end: 58, text: "Saved boundary.")])
             try await f.store.save(legacy)
             let directory = f.directory.appendingPathComponent("checkpoints")
             let file = directory.appendingPathComponent("\(f.digest).json")

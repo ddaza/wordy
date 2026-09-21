@@ -57,7 +57,7 @@ Non-speech token suppression (`suppress_nst`) and blank suppression are on; know
 
 ## Chunking and reconciliation
 
-`ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once, each decoded with symmetric overlap context (`Core/ChunkPlan.swift`). A tail shorter than `min(chunk/4, 10 s)` merges into the previous chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s. Gold capture uses 30 s + 3 s so Whisper's native 30 s grid overlaps instead of abutting.
+`ChunkPolicy(chunkSeconds, overlapSeconds)` produces owned half-open ranges that tile `[0, duration)` exactly once (`Core/ChunkPlan.swift`). Each decoded window is `chunkSeconds` long; the next window starts `overlapSeconds` earlier so consecutive audio ranges overlap by the policy amount. A final window shorter than `chunkSeconds` is kept as its own chunk. Local jobs use 60 s + 3 s; cloud jobs use 60 s + 10 s. Gold capture uses 30 s + 3 s so Whisper's native 30 s grid is not split again without overlap.
 
 `CaptionPipeline.State` keeps a bounded provisional overlap tail until the following response arrives. Revision 2 reconciles ordered text across preceding phrases without a word budget, preserves unmatched speech at its source times, and marks ambiguous overlapping intervals explicitly. Only a matching duplicate prefix supplies evidence for advancing a remaining caption's start. Checkpoints store per-section engine `raw`, finalized captions, and the pending tail; the final section flushes the tail. The rules, recovery behavior, and rejected alternatives are in `docs/caption-pipeline.md`.
 

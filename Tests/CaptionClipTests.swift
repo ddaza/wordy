@@ -89,16 +89,20 @@ struct CaptionClipTests {
         #expect(dropped.isEmpty, Comment(rawValue: "heard words dropped by stitch: \(dropped.joined(separator: " "))"))
     }
 
-    @Test func `clip 14-20 gold windows overlap thirty second bounds`() throws {
+    @Test func `clip 14-20 gold windows overlap by the capture policy`() throws {
         let gold = try Clip14To20.loadGold()
-        #expect(gold.policy == .gold)
+        let policy = gold.policy
         #expect(gold.plan.count == gold.chunks.count)
         #expect(gold.plan.first?.audioStart == 0)
-        #expect(gold.plan.first?.audioEnd == 33)
-        #expect(gold.plan.dropFirst().first?.audioStart == 27)
+        #expect(gold.plan.dropLast().allSatisfy { $0.audioDuration == policy.chunkSeconds })
         for (previous, next) in zip(gold.plan, gold.plan.dropFirst()) {
             #expect(previous.ownedEnd == next.ownedStart)
-            #expect(next.audioStart < previous.audioEnd)
+            #expect(next.audioStart == previous.audioEnd - policy.overlapSeconds)
+        }
+        for (previous, next) in zip(gold.chunks, gold.chunks.dropFirst()) {
+            let previousEnd = previous.raw.map(\.end).max() ?? 0
+            let nextStart = next.raw.map(\.start).min() ?? .infinity
+            #expect(nextStart <= previousEnd, "chunk \(next.index) should not leave a gap after chunk \(previous.index)")
         }
     }
 
@@ -118,28 +122,29 @@ struct CaptionClipTests {
         )
         try CaptionJobRecorder.encode(fixture)
             .write(to: Clip14To20.directory.appendingPathComponent("cloud-60-10.json"))
-        #expect(fixture.chunks.count == 6)
+        #expect(fixture.chunks.count == fixture.plan.count)
         #expect(fixture.rawByChunk.contains { !$0.isEmpty })
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["WORDY_RECORD_GOLD"] == "1"))
-    func `record clip 14-20 gold through overlapping 30s windows`() async throws {
+    func `record clip 14-20 gold through overlapping policy windows`() async throws {
         let audio = Clip14To20.audioURL
         let key = try #require(Clip14To20.openRouterKey())
         #expect(FileManager.default.fileExists(atPath: audio.path))
+        let policy = ChunkPolicy.gold
         let fixture = try await CaptionJobRecorder.recordOpenRouter(
-            name: "clip-14-20-gold-30-3",
+            name: "clip-14-20-gold-\(policy.label)",
             audioURL: audio,
             duration: 360,
-            policy: .gold,
+            policy: policy,
             gold: [],
             model: .whisperLargeV3,
             apiKey: key,
         )
         try CaptionJobRecorder.encode(fixture)
             .write(to: Clip14To20.directory.appendingPathComponent("gold.json"))
-        #expect(fixture.chunks.count == 12)
-        #expect(fixture.plan.dropFirst().first?.audioStart == 27)
+        #expect(fixture.chunks.count == fixture.plan.count)
+        #expect(fixture.plan.dropFirst().first?.audioStart == policy.chunkSeconds - policy.overlapSeconds)
         #expect(fixture.rawByChunk.contains { !$0.isEmpty })
     }
 }

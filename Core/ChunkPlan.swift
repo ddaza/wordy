@@ -1,9 +1,10 @@
 import Foundation
 
-/// Scheduling and checkpoint unit for long recordings. Chunks own a half-open
-/// range of source time and decode extra context on both sides so words cut at
-/// a boundary are heard whole by at least one chunk. Overlap never changes the
-/// timeline: every result keeps absolute source timestamps.
+/// Scheduling and checkpoint unit for long recordings. Each decoded window is
+/// `chunkSeconds` long. The next window starts `overlapSeconds` before the
+/// previous window ends, so a phrase cut at a seam is heard whole at least
+/// once. Owned ranges still tile `[0, duration)` exactly once. Overlap never
+/// changes the timeline: every result keeps absolute source timestamps.
 public struct ChunkPolicy: Codable, Hashable, Sendable {
     public enum PolicyError: Error, Equatable { case invalidChunkLength, invalidOverlap }
 
@@ -12,7 +13,7 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
 
     public init(chunkSeconds: TimeInterval, overlapSeconds: TimeInterval) throws {
         guard chunkSeconds.isFinite, chunkSeconds >= 5 else { throw PolicyError.invalidChunkLength }
-        guard overlapSeconds.isFinite, overlapSeconds >= 0, overlapSeconds * 2 < chunkSeconds else {
+        guard overlapSeconds.isFinite, overlapSeconds >= 0, overlapSeconds < chunkSeconds else {
             throw PolicyError.invalidOverlap
         }
         self.chunkSeconds = chunkSeconds
@@ -22,27 +23,31 @@ public struct ChunkPolicy: Codable, Hashable, Sendable {
     /// Provisional default until the Milestone 1 benchmark settles the policy.
     public static let `default` = try! ChunkPolicy(chunkSeconds: 60, overlapSeconds: 3)
 
-    /// OpenRouter Whisper emits coarse ~30 s phrases. Keep the same 60 s owned
-    /// stride as local jobs so seams are not denser than the provider grid, but
-    /// use 10 s of overlap (local uses 3 s) so a phrase that starts on a boundary
-    /// is still heard whole. Decoded window stays at 80 s for the 3 MiB PCM cap.
-    /// A 50 s stride was tried and placed seams through mid-sentence formula
-    /// lists (e.g. herb names around 3:20 on a sample clip).
+    /// OpenRouter Whisper emits coarse ~30 s phrases. Keep the same 60 s window
+    /// as local jobs so seams are not denser than the provider grid, but use
+    /// 10 s of overlap (local uses 3 s) so a phrase that starts on a boundary
+    /// is still heard whole. Decoded window stays at 60 s, under the 80 s /
+    /// 3 MiB PCM cap. A 50 s window was tried and placed seams through
+    /// mid-sentence formula lists (e.g. herb names around 3:20 on a sample clip).
     public static let cloudDefault = try! ChunkPolicy(chunkSeconds: 60, overlapSeconds: 10)
 
-    /// Whisper's own decoder grid is ~30 s with no overlap. A one-shot gold
-    /// capture therefore abuts at 0, 30, 60 and drops speech between windows.
-    /// Gold uses the same 30 s owned stride with 3 s of context so consecutive
-    /// decoded ranges overlap: [0–33, 27–63, 57–93, …].
+    /// Whisper's decoder grid is ~30 s. A gold capture uses a 30 s window so
+    /// the engine does not split the clip again without overlap. Overlap still
+    /// comes from `overlapSeconds`, not a hardcoded start list.
     public static let gold = try! ChunkPolicy(chunkSeconds: 30, overlapSeconds: 3)
 
     public var label: String {
         "\(Int(chunkSeconds))s+\(Int(overlapSeconds))s"
     }
 
-    /// Peak decoded seconds for a middle section, including both overlaps.
+    /// Distance between consecutive window starts.
+    public var strideSeconds: TimeInterval {
+        chunkSeconds - overlapSeconds
+    }
+
+    /// Peak decoded seconds for any section.
     public var maximumAudioSeconds: TimeInterval {
-        chunkSeconds + 2 * overlapSeconds
+        chunkSeconds
     }
 }
 
@@ -83,27 +88,32 @@ public struct AudioChunk: Codable, Hashable, Sendable, Identifiable {
 
 public enum ChunkPlanner {
     /// Splits `duration` into consecutive owned ranges that cover [0, duration)
-    /// exactly once. A short tail is merged into the previous chunk so the last
-    /// unit is never a sliver that whisper would pad to a full window anyway.
+    /// exactly once. Each decoded window is `policy.chunkSeconds` long and starts
+    /// `policy.overlapSeconds` before the previous window ended. A final window
+    /// shorter than `chunkSeconds` is kept as its own chunk so the engine never
+    /// sees more than one native window of audio.
     public static func plan(duration: TimeInterval, policy: ChunkPolicy) -> [AudioChunk] {
         guard duration.isFinite, duration > 0 else { return [] }
-        let minimumTail = min(policy.chunkSeconds / 4, 10)
+        let window = policy.chunkSeconds
+        let stride = policy.strideSeconds
         var chunks: [AudioChunk] = []
         var start: TimeInterval = 0
         var index = 0
         while start < duration {
-            var end = min(start + policy.chunkSeconds, duration)
-            if duration - end < minimumTail {
-                end = duration
-            }
+            let audioEnd = min(duration, start + window)
+            let isLast = audioEnd >= duration
+            let ownedEnd = isLast ? duration : start + stride
             chunks.append(AudioChunk(
                 index: index,
                 ownedStart: start,
-                ownedEnd: end,
-                audioStart: max(0, start - policy.overlapSeconds),
-                audioEnd: min(duration, end + policy.overlapSeconds),
+                ownedEnd: ownedEnd,
+                audioStart: start,
+                audioEnd: audioEnd,
             ))
-            start = end
+            if isLast {
+                break
+            }
+            start += stride
             index += 1
         }
         return chunks
