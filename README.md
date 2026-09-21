@@ -50,6 +50,7 @@ make build-arm64       # Cross-compile an Apple Silicon Release app
 make build-x86_64      # Cross-compile an Intel Release app
 make verify-universal  # Build and verify one app containing both architectures
 make check             # Native tests plus Universal Release verification
+make version-bump patch  # Also minor or major; updates Config/Version.xcconfig
 make package           # Build universal, arm64, and x86_64 DMGs into build/dist
 make release           # Recheck those disk images and publish the GitHub release with gh
 make hooks             # Install Lefthook git hooks
@@ -85,7 +86,7 @@ Skip a single commit or push with `LEFTHOOK=0`. Personal overrides go in git-ign
 
 The user-facing version lives in [`Config/Version.xcconfig`](Config/Version.xcconfig) (`MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`). Xcode, Info.plist, disk image names, and the git tag all read that file. The first cut is **0.1.0** (tag `v0.1.0`): a three-part version so later `0.1.1` / Sparkle comparisons work, without claiming a 1.0.
 
-Bump both numbers in that file, commit, then from this machine:
+Bump both numbers with `make version-bump patch` (or `minor` / `major`), commit, then from this machine:
 
 ```sh
 make package        # icon if missing, three Release apps, DMGs, checksums, notes

@@ -31,7 +31,7 @@ BENCH_OUTPUT ?= $(BUILD_ROOT)/benchmarks
 .PHONY: help doctor list xcode build run test test-core test-arm64 test-x86_64 \
 	package build-universal build-arm64 build-x86_64 verify-universal verify-arm64 \
 	verify-x86_64 analyze check clean engine engine-clean bench hooks icon \
-	ensure-icon release
+	ensure-icon release version-bump major minor patch
 
 help: ## Show the available development commands.
 	@awk 'BEGIN { FS = ":.*## "; printf "Wordy development commands:\n\n" } /^[a-zA-Z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -140,6 +140,12 @@ ensure-icon: ## Generate the app icon set when the 1024px master is missing.
 		printf 'App icon missing; generating with the system serif.\n'; \
 		$(MAKE) icon; \
 	fi
+
+version-bump: ## Bump Config/Version.xcconfig. Usage: make version-bump patch
+	sh scripts/bump-version.sh $(filter major minor patch,$(MAKECMDGOALS))
+
+major minor patch:
+	@:
 
 release: ensure-icon ## Recheck build/dist disk images and publish the GitHub release with gh.
 	sh scripts/push-release.sh
